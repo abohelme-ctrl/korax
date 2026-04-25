@@ -87,6 +87,7 @@ export default function TeamPage() {
   const [tab, setTab]               = useState('formation') // formation | bench | cards
   const [activeSlot, setActiveSlot] = useState(null)       // { kind, index } | null
   const [selected, setSelected]     = useState(null)
+  const [actionSlot, setActionSlot] = useState(null)       // { kind, index, player } | null
   const [myCards, setMyCards]       = useState([])
   const [hasGift, setHasGift]       = useState(false)
   const [copied, setCopied]         = useState(false)
@@ -111,18 +112,34 @@ export default function TeamPage() {
 
   // ── Slot interactions ──────────────────────────────────────────────────────
 
+  function isAlreadyPlaced(player, excludeKind, excludeIdx) {
+    return [...starters, ...bench].some((p, i) => {
+      if (!p) return false
+      const k = i < 11 ? 'starter' : 'bench'
+      const j = i < 11 ? i : i - 11
+      if (k === excludeKind && j === excludeIdx) return false
+      return p.id === player.id
+    })
+  }
+
   function handleSlotPress(kind, idx) {
     if (selected) {
+      if (isAlreadyPlaced(selected, kind, idx)) return // منع التكرار
       place(kind, idx, selected)
       setSelected(null)
       setActiveSlot(null)
     } else {
-      const same = activeSlot?.kind === kind && activeSlot?.index === idx
-      if (same) {
-        setActiveSlot(null)
+      const currentPlayer = kind === 'starter' ? starters[idx] : bench[idx]
+      if (currentPlayer) {
+        setActionSlot({ kind, index: idx, player: currentPlayer })
       } else {
-        setActiveSlot({ kind, index: idx })
-        setTab('cards')
+        const same = activeSlot?.kind === kind && activeSlot?.index === idx
+        if (same) {
+          setActiveSlot(null)
+        } else {
+          setActiveSlot({ kind, index: idx })
+          setTab('cards')
+        }
       }
     }
   }
@@ -290,6 +307,24 @@ export default function TeamPage() {
             selected={selected}
             activeSlot={activeSlot}
             onSelect={handleCardPress}
+            placedIds={new Set([...starters, ...bench].filter(Boolean).map(p => p.id))}
+          />
+        )}
+
+        {/* Action sheet — حذف أو تغيير لاعب */}
+        {actionSlot && (
+          <SlotActionSheet
+            player={actionSlot.player}
+            onReplace={() => {
+              setActiveSlot({ kind: actionSlot.kind, index: actionSlot.index })
+              setActionSlot(null)
+              setTab('cards')
+            }}
+            onRemove={() => {
+              removeSlot(actionSlot.kind, actionSlot.index)
+              setActionSlot(null)
+            }}
+            onClose={() => setActionSlot(null)}
           />
         )}
 
@@ -369,7 +404,6 @@ function FormationSlot({ slotIdx, pos, player, isActive, onPress, onRemove }) {
     <div className="flex flex-col items-center gap-0.5" style={{ minWidth: 52 }}>
       <button
         onClick={() => onPress(slotIdx)}
-        onDoubleClick={() => player && onRemove(slotIdx)}
         className={`w-[52px] h-[52px] rounded-full border-2 flex flex-col items-center justify-center transition-all duration-200 relative ${
           player
             ? `${cfg.border} ${cfg.bg} shadow-lg ${cfg.glow} ${good ? '' : 'ring-2 ring-amber-400/70'}`
@@ -454,7 +488,7 @@ function ChemistryBar({ chemistry, starters, formation }) {
 function BenchView({ bench, activeSlot, onSlotPress, onRemove }) {
   return (
     <div className="mx-4 mb-4">
-      <p className="text-xs text-muted text-center mb-3">اضغط على مكان لاختيار لاعب احتياطي · انقر مرتين لإزالته</p>
+      <p className="text-xs text-muted text-center mb-3">اضغط على مكان فارغ لإضافة لاعب · اضغط على لاعب لتغييره أو حذفه</p>
       <div className="card p-4">
         <div className="grid grid-cols-4 gap-3">
           {bench.map((player, i) => {
@@ -464,7 +498,6 @@ function BenchView({ bench, activeSlot, onSlotPress, onRemove }) {
               <div key={i} className="flex flex-col items-center gap-1">
                 <button
                   onClick={() => onSlotPress(i)}
-                  onDoubleClick={() => player && onRemove(i)}
                   className={`w-full aspect-square rounded-2xl border-2 flex flex-col items-center justify-center transition-all ${
                     player
                       ? `${cfg.border} ${cfg.bg} shadow-md ${cfg.glow}`
@@ -502,7 +535,7 @@ function BenchView({ bench, activeSlot, onSlotPress, onRemove }) {
 
 // ─── Cards View ────────────────────────────────────────────────────────────────
 
-function CardsView({ cards, selected, activeSlot, onSelect }) {
+function CardsView({ cards, selected, activeSlot, onSelect, placedIds }) {
   if (cards.length === 0) return null
 
   return (
@@ -516,16 +549,25 @@ function CardsView({ cards, selected, activeSlot, onSelect }) {
       )}
       <div className="grid grid-cols-3 gap-2">
         {cards.map((player, i) => {
-          const cfg   = RARITY[player.rarity] || RARITY.common
-          const isSel = selected?.id === player.id && selected?.obtainedAt === player.obtainedAt
+          const cfg     = RARITY[player.rarity] || RARITY.common
+          const isSel   = selected?.id === player.id && selected?.obtainedAt === player.obtainedAt
+          const isPlaced = placedIds?.has(player.id)
           return (
             <button
               key={i}
-              onClick={() => onSelect(player)}
-              className={`rounded-2xl p-3 text-center border-2 transition-all active:scale-95 ${
-                isSel ? `${cfg.border} scale-105 shadow-xl ${cfg.glow}` : 'border-border bg-card'
+              onClick={() => !isPlaced && onSelect(player)}
+              disabled={isPlaced}
+              className={`rounded-2xl p-3 text-center border-2 transition-all relative ${
+                isSel
+                  ? `${cfg.border} scale-105 shadow-xl ${cfg.glow}`
+                  : isPlaced
+                    ? 'border-border bg-card opacity-40 cursor-not-allowed'
+                    : 'border-border bg-card active:scale-95'
               }`}
             >
+              {isPlaced && (
+                <span className="absolute top-1 right-1 text-[9px] bg-primary text-white rounded-full px-1 font-bold">✓</span>
+              )}
               <div className="text-2xl mb-1">{player.flag}</div>
               <p className="text-[10px] font-black text-text leading-tight">{player.name}</p>
               <p className="text-[9px] text-muted leading-tight mt-0.5">{player.position}</p>
@@ -534,6 +576,49 @@ function CardsView({ cards, selected, activeSlot, onSelect }) {
             </button>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+// ─── Slot Action Sheet ─────────────────────────────────────────────────────────
+
+function SlotActionSheet({ player, onReplace, onRemove, onClose }) {
+  const cfg = RARITY[player.rarity] || RARITY.common
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div
+        className="relative w-full max-w-[480px] bg-card border-t border-border rounded-t-3xl p-6 pb-10"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="w-10 h-1 bg-border rounded-full mx-auto mb-5" />
+
+        {/* Player info */}
+        <div className={`flex items-center gap-3 mb-5 p-3 rounded-2xl border-2 ${cfg.border} ${cfg.bg}`}>
+          <span className="text-4xl">{player.flag}</span>
+          <div className="flex-1">
+            <p className="font-black text-text">{player.name}</p>
+            <p className="text-xs text-muted">{player.position} · {RARITY_AR[player.rarity]}</p>
+          </div>
+          <span className={`text-xl font-black ${cfg.text}`}>{player.rating}</span>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={onReplace}
+            className="w-full py-4 rounded-2xl bg-primary text-white font-bold text-sm active:scale-95 transition-transform"
+          >
+            🔄 تغيير اللاعب
+          </button>
+          <button
+            onClick={onRemove}
+            className="w-full py-4 rounded-2xl border border-live/40 text-live font-bold text-sm active:scale-95 transition-transform"
+          >
+            🗑️ حذف من التشكيلة
+          </button>
+        </div>
       </div>
     </div>
   )
