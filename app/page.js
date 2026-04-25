@@ -8,7 +8,7 @@ import Header from '@/components/layout/Header'
 import BottomNav from '@/components/layout/BottomNav'
 import MatchCard from '@/components/match/MatchCard'
 import Onboarding from '@/components/Onboarding'
-import { fetchTodayMatches, INTERVAL_LIVE, INTERVAL_IDLE } from '@/lib/api-football'
+import { fetchTodayMatches, fetchAllFixtures, INTERVAL_LIVE, INTERVAL_IDLE } from '@/lib/api-football'
 
 // كأس العالم 2026 يبدأ 11 يونيو 2026 الساعة 22:00 بتوقيت السعودية
 const WC_START = new Date('2026-06-11T19:00:00Z')
@@ -39,10 +39,12 @@ const TABS = [
 ]
 
 export default function HomePage() {
-  const [matches, setMatches]     = useState([])
-  const [activeTab, setActiveTab] = useState('all')
-  const [loading, setLoading]     = useState(true)
-  const [countdown, setCountdown] = useState(null)
+  const [matches, setMatches]         = useState([])
+  const [allFixtures, setAllFixtures] = useState(FIRST_MATCHES)
+  const [activeTab, setActiveTab]     = useState('all')
+  const [loading, setLoading]         = useState(true)
+  const [loadingAll, setLoadingAll]   = useState(false)
+  const [countdown, setCountdown]     = useState(null)
 
   // Countdown timer — يبدأ فقط في المتصفح لتجنب hydration mismatch
   useEffect(() => {
@@ -56,6 +58,19 @@ export default function HomePage() {
       .then(setMatches)
       .finally(() => setLoading(false))
   }, [])
+
+  // قبل البطولة: جلب كل المباريات المجدولة
+  useEffect(() => {
+    if (countdown !== null && countdown.total > 0) {
+      setLoadingAll(true)
+      fetchAllFixtures()
+        .then(fixtures => {
+          if (fixtures && fixtures.length > 0) setAllFixtures(fixtures)
+        })
+        .catch(() => {})
+        .finally(() => setLoadingAll(false))
+    }
+  }, [countdown !== null])
 
   // Smart refresh: 10s live / 5min idle
   useEffect(() => {
@@ -88,6 +103,12 @@ export default function HomePage() {
         {!started && countdown && <CountdownHero countdown={countdown} />}
 
         {/* ── Today's matches or schedule ── */}
+        {!started && loadingAll && (
+          <div className="flex items-center justify-center py-4 gap-2">
+            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs text-muted">جاري تحميل الجدول...</span>
+          </div>
+        )}
         {started ? (
           <>
             {/* Tab bar */}
@@ -118,7 +139,7 @@ export default function HomePage() {
           </>
         ) : (
           /* Schedule before tournament starts */
-          <SchedulePreview matches={FIRST_MATCHES} />
+          <SchedulePreview matches={allFixtures} />
         )}
 
       </div>
@@ -241,27 +262,51 @@ function TournamentStat({ value, label }) {
 // ─── Schedule Preview ──────────────────────────────────────────────────────────
 
 function SchedulePreview({ matches }) {
-  const [showAll, setShowAll] = useState(false)
-  const visible = showAll ? matches : matches.slice(0, 6)
+  const [activeRound, setActiveRound] = useState(null)
 
-  // Group by date
-  const grouped = visible.reduce((acc, m) => {
-    if (!acc[m.date]) acc[m.date] = []
-    acc[m.date].push(m)
+  // استخراج الجولات المتاحة
+  const rounds = [...new Set(matches.map(m => m.group || m.groupEn || 'الجولة الأولى'))].filter(Boolean)
+
+  const filtered = activeRound
+    ? matches.filter(m => (m.group || m.groupEn) === activeRound)
+    : matches
+
+  // تجميع حسب التاريخ
+  const grouped = filtered.reduce((acc, m) => {
+    const dateKey = m.date || (m.startTime
+      ? new Date(m.startTime).toLocaleDateString('ar-SA', { weekday: 'long', day: 'numeric', month: 'long' })
+      : 'غير محدد')
+    if (!acc[dateKey]) acc[dateKey] = []
+    acc[dateKey].push(m)
     return acc
   }, {})
 
   return (
-    <div className="px-4 pb-4">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="font-black text-base text-text">⚽ الجولة الأولى</h2>
-        <span className="text-xs text-muted">بتوقيت السعودية</span>
-      </div>
+    <div className="pb-4">
+      {/* Round filter */}
+      {rounds.length > 1 && (
+        <div className="tab-bar mb-4">
+          <button
+            onClick={() => setActiveRound(null)}
+            className={`tab-item ${!activeRound ? 'active' : ''}`}
+          >
+            الكل ({matches.length})
+          </button>
+          {rounds.map(r => (
+            <button
+              key={r}
+              onClick={() => setActiveRound(r)}
+              className={`tab-item ${activeRound === r ? 'active' : ''}`}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+      )}
 
-      <div className="space-y-3">
+      <div className="px-4 space-y-3">
         {Object.entries(grouped).map(([date, dayMatches]) => (
           <div key={date}>
-            {/* Date header */}
             <div className="flex items-center gap-2 mb-2">
               <div className="h-px flex-1 bg-border" />
               <span className="text-[11px] font-bold text-primary px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
@@ -269,8 +314,6 @@ function SchedulePreview({ matches }) {
               </span>
               <div className="h-px flex-1 bg-border" />
             </div>
-
-            {/* Matches */}
             <div className="space-y-2">
               {dayMatches.map((m, i) => (
                 <ScheduleMatchRow key={i} match={m} />
@@ -278,29 +321,36 @@ function SchedulePreview({ matches }) {
             </div>
           </div>
         ))}
-      </div>
 
-      {/* Show more / less */}
-      {matches.length > 6 && (
-        <button
-          onClick={() => setShowAll(v => !v)}
-          className="w-full mt-4 py-3 rounded-2xl border border-border text-muted-light text-sm font-bold hover:bg-card transition-colors"
-        >
-          {showAll ? 'عرض أقل ▲' : `عرض كل المباريات (${matches.length}) ▼`}
-        </button>
-      )}
+        {filtered.length === 0 && (
+          <div className="text-center py-12 text-muted">
+            <span className="text-4xl block mb-2">📅</span>
+            <p className="text-sm">لا توجد مباريات في هذه الجولة</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
 function ScheduleMatchRow({ match }) {
+  // دعم بنية API (homeTeam/awayTeam) و hardcoded (home/away)
+  const homeName = match.homeTeam?.name || match.home || ''
+  const awayName = match.awayTeam?.name || match.away || ''
+  const homeFlag = match.homeTeam?.flag || match.homeFlag || '🏳️'
+  const awayFlag = match.awayTeam?.flag || match.awayFlag || '🏳️'
+  const city     = match.city || match.homeTeam?.city || ''
+  const timeStr  = match.time || (match.startTime
+    ? new Date(match.startTime).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })
+    : '')
+
   return (
     <div className="card p-3">
       <div className="flex items-center gap-3">
 
         {/* Time */}
         <div className="flex flex-col items-center min-w-[44px]">
-          <span className="text-xs font-black text-primary">{match.time}</span>
+          <span className="text-xs font-black text-primary">{timeStr}</span>
           <span className="text-[9px] text-muted">KSA</span>
         </div>
 
@@ -308,20 +358,20 @@ function ScheduleMatchRow({ match }) {
 
         {/* Home */}
         <div className="flex flex-col items-center gap-0.5 flex-1">
-          <span className="text-2xl">{match.homeFlag}</span>
-          <span className="text-[10px] font-bold text-text text-center leading-tight">{match.home}</span>
+          <span className="text-2xl">{homeFlag}</span>
+          <span className="text-[10px] font-bold text-text text-center leading-tight">{homeName}</span>
         </div>
 
         {/* VS */}
         <div className="flex flex-col items-center gap-0.5 px-1">
           <span className="text-xs font-black text-muted">VS</span>
-          <span className="text-[8px] text-muted/60">{match.city}</span>
+          <span className="text-[8px] text-muted/60">{city}</span>
         </div>
 
         {/* Away */}
         <div className="flex flex-col items-center gap-0.5 flex-1">
-          <span className="text-2xl">{match.awayFlag}</span>
-          <span className="text-[10px] font-bold text-text text-center leading-tight">{match.away}</span>
+          <span className="text-2xl">{awayFlag}</span>
+          <span className="text-[10px] font-bold text-text text-center leading-tight">{awayName}</span>
         </div>
       </div>
 
