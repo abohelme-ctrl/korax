@@ -1,0 +1,257 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base ──────────────────────────────────────────────────────────────────── */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  direction: rtl;
+  font-family: 'Cairo', sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #0A0E1A;
+  color: #F9FAFB;
+  min-height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #111827; }
+::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+
+/* ── Layout ────────────────────────────────────────────────────────────────── */
+
+.page-content {
+  padding-bottom: 80px; /* space for bottom nav */
+}
+
+/* ── Cards ─────────────────────────────────────────────────────────────────── */
+
+.card {
+  background: #111827;
+  border-radius: 1rem;
+  border: 1px solid #1F2937;
+}
+
+.card-press {
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+.card-press:active {
+  transform: scale(0.97);
+  background: #1a2234;
+}
+
+/* ── Tabs ──────────────────────────────────────────────────────────────────── */
+
+.tab-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 16px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.tab-bar::-webkit-scrollbar { display: none; }
+
+.tab-item {
+  flex-shrink: 0;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: 1px solid #1F2937;
+  white-space: nowrap;
+}
+
+.tab-item.active {
+  background: #3B82F6;
+  border-color: #3B82F6;
+  color: white;
+}
+
+.tab-item:not(.active) {
+  background: #111827;
+  color: #6B7280;
+}
+
+/* ── Live Badge ────────────────────────────────────────────────────────────── */
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #EF4444;
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.8); }
+}
+
+/* ── Score Input ───────────────────────────────────────────────────────────── */
+
+.score-box {
+  width: 80px;
+  height: 80px;
+  background: #1F2937;
+  border: 2px solid #374151;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  font-weight: 800;
+  color: white;
+  transition: border-color 0.2s;
+  user-select: none;
+}
+
+.score-box:hover, .score-box:focus-within {
+  border-color: #3B82F6;
+}
+
+/* ── Player Card ───────────────────────────────────────────────────────────── */
+
+.player-card {
+  border-radius: 12px;
+  border: 1px solid;
+  padding: 12px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease;
+}
+
+.player-card:active {
+  transform: scale(0.95);
+}
+
+.player-card.legendary {
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+}
+
+.player-card.rare {
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.25);
+}
+
+/* ── Formation Grid ────────────────────────────────────────────────────────── */
+
+.pitch {
+  background: linear-gradient(180deg, #0d2414 0%, #0f2e18 50%, #0d2414 100%);
+  border: 2px solid #1a4a25;
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.pitch::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 120px;
+  height: 120px;
+  border: 2px solid rgba(255,255,255,0.08);
+  border-radius: 50%;
+}
+
+/* ── Progress Bar ──────────────────────────────────────────────────────────── */
+
+.progress-bar {
+  height: 6px;
+  background: #1F2937;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #3B82F6, #22C55E);
+  transition: width 0.6s ease;
+}
+
+/* ── Utilities ─────────────────────────────────────────────────────────────── */
+
+.hide-scrollbar { scrollbar-width: none; }
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ── Bottom Nav ────────────────────────────────────────────────────────────── */
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  background: #111827;
+  border-top: 1px solid #1F2937;
+  z-index: 50;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ── Stat Bar ──────────────────────────────────────────────────────────────── */
+
+.stat-bar-home {
+  height: 6px;
+  border-radius: 999px;
+  background: #3B82F6;
+}
+
+.stat-bar-away {
+  height: 6px;
+  border-radius: 999px;
+  background: #EF4444;
+}
+
+/* ── Animations ────────────────────────────────────────────────────────────── */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+@keyframes bounceIn {
+  0%   { opacity: 0; transform: scale(0.5); }
+  70%  { transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.animate-bounce-in {
+  animation: bounceIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ── Custom backgrounds ────────────────────────────────────────────────────── */
+
+.bg-white\/8 { background-color: rgba(255,255,255,0.08); }
+
+/* ── Utility ───────────────────────────────────────────────────────────────── */
+
+.text-gradient {
+  background: linear-gradient(135deg, #3B82F6, #22C55E);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

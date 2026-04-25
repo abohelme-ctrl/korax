@@ -1,0 +1,52 @@
+{
+  "name": "KoraX - كأس العالم 2026",
+  "short_name": "KoraX",
+  "description": "توقع نتائج مباريات كأس العالم 2026 واجمع بطاقات اللاعبين وتنافس مع أصدقائك",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0E1A",
+  "theme_color": "#3B82F6",
+  "orientation": "portrait",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "/api/icon/192",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/api/icon/512",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/api/icon/180",
+      "sizes": "180x180",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["sports", "entertainment", "games"],
+  "shortcuts": [
+    {
+      "name": "التوقع",
+      "url": "/",
+      "description": "توقع نتائج مباريات اليوم"
+    },
+    {
+      "name": "فريقي",
+      "url": "/team",
+      "description": "بناء فريق المونديال الخاص بي"
+    },
+    {
+      "name": "الهدية اليومية",
+      "url": "/gift",
+      "description": "استلم لاعبك اليومي المجاني"
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}
