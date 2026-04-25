@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { href: '/groups',     icon: GroupsIcon,  label: 'المجموعات' },
   { href: '/team',       icon: TeamIcon,    label: 'فريقي'     },
   { href: '/rankings',   icon: TrophyIcon,  label: 'الترتيب'   },
-  { href: '/nations',    icon: ShieldIcon,  label: 'المنتخبات' },
+  { href: '/news',       icon: NewsIcon,    label: 'الأخبار'   },
 ]
 
 export default function BottomNav() {

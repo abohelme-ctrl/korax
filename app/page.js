@@ -7,6 +7,7 @@ import Link from 'next/link'
 import Header from '@/components/layout/Header'
 import BottomNav from '@/components/layout/BottomNav'
 import MatchCard from '@/components/match/MatchCard'
+import Onboarding from '@/components/Onboarding'
 import { fetchTodayMatches, INTERVAL_LIVE, INTERVAL_IDLE } from '@/lib/api-football'
 
 // كأس العالم 2026 يبدأ 11 يونيو 2026 الساعة 22:00 بتوقيت السعودية
@@ -78,6 +79,7 @@ export default function HomePage() {
 
   return (
     <div>
+      <Onboarding />
       <Header title="KoraX" />
 
       <div className="page-content">

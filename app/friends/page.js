@@ -1,34 +1,53 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Header from '@/components/layout/Header'
 import BottomNav from '@/components/layout/BottomNav'
-import { MOCK_FRIEND_GROUPS } from '@/lib/mock-data'
 import { generateGroupCode, getInitials } from '@/lib/utils'
 
+const LS_KEY = 'korax_friend_groups'
+
+function loadGroups() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] }
+}
+function saveGroups(groups) {
+  localStorage.setItem(LS_KEY, JSON.stringify(groups))
+}
+
 export default function FriendsPage() {
-  const [groups, setGroups]         = useState(MOCK_FRIEND_GROUPS)
-  const [showCreate, setShowCreate] = useState(false)
-  const [showJoin, setShowJoin]     = useState(false)
-  const [newName, setNewName]       = useState('')
-  const [joinCode, setJoinCode]     = useState('')
-  const [activeGroup, setActiveGroup] = useState(groups[0]?.id || null)
+  const [groups, setGroups]           = useState([])
+  const [showCreate, setShowCreate]   = useState(false)
+  const [showJoin, setShowJoin]       = useState(false)
+  const [newName, setNewName]         = useState('')
+  const [joinCode, setJoinCode]       = useState('')
+  const [activeGroup, setActiveGroup] = useState(null)
+
+  useEffect(() => {
+    const saved = loadGroups()
+    setGroups(saved)
+    if (saved.length > 0) setActiveGroup(saved[0].id)
+  }, [])
 
   function handleCreate() {
     if (!newName.trim()) return
-    const code = generateGroupCode()
-    setGroups(prev => [...prev, {
+    const code  = generateGroupCode()
+    const group = {
       id:      `fg_${Date.now()}`,
       name:    newName.trim(),
       code,
       admin:   'أنت',
-      members: [{ name: 'أنت', points: 72, rank: 1, isMe: true }],
-    }])
+      members: [{ name: 'أنت', points: 0, rank: 1, isMe: true }],
+    }
+    const updated = [...groups, group]
+    setGroups(updated)
+    saveGroups(updated)
+    setActiveGroup(group.id)
     setNewName('')
     setShowCreate(false)
   }
 
   function handleJoin() {
+    if (!joinCode.trim()) return
     alert(`سيتم الانضمام للمجموعة برمز: ${joinCode}`)
     setJoinCode('')
     setShowJoin(false)
@@ -104,12 +123,14 @@ export default function FriendsPage() {
           <input
             value={newName}
             onChange={e => setNewName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleCreate()}
             placeholder="اسم المجموعة"
             className="w-full bg-bg border border-border rounded-xl px-4 py-3 text-text text-sm font-medium outline-none focus:border-primary"
           />
           <button
             onClick={handleCreate}
-            className="w-full py-4 rounded-2xl bg-primary font-bold text-white mt-3 active:scale-95 transition-transform"
+            disabled={!newName.trim()}
+            className="w-full py-4 rounded-2xl bg-primary font-bold text-white mt-3 active:scale-95 transition-transform disabled:opacity-50"
           >
             إنشاء
           </button>
@@ -153,7 +174,8 @@ function GroupDetail({ group }) {
           <p className="text-xs text-muted">{group.members.length} أعضاء</p>
         </div>
         <button
-          onClick={() => navigator.share?.({ title: 'KoraX', text: `انضم لمجموعتي: ${group.code}` })}
+          onClick={() => navigator.share?.({ title: 'KoraX', text: `انضم لمجموعتي: ${group.code}` })
+            || navigator.clipboard?.writeText(group.code)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/30 text-primary text-xs font-bold"
         >
           <span>🔗</span>

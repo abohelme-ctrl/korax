@@ -5,7 +5,6 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import Header from '@/components/layout/Header'
 import BottomNav from '@/components/layout/BottomNav'
-import { LEADERBOARD } from '@/lib/mock-data'
 import { getInitials, generateGroupCode } from '@/lib/utils'
 import { useAuth } from '@/lib/useAuth'
 import { getLeaderboard, getMyGroups, createGroup, joinGroup, setUserToken } from '@/lib/strapi'
@@ -15,29 +14,14 @@ const VIEWS = [
   { id: 'friends', label: '👥 مجموعتي'  },
 ]
 
-const MOCK_MY_GROUPS = [
-  {
-    id: 'g1',
-    name: 'أصدقاء العمل',
-    code: 'KRX-7842',
-    members: [
-      { name: 'فهد الغامدي',  points: 95, correct: 12, isMe: false },
-      { name: 'أنت',           points: 72, correct: 9,  isMe: true  },
-      { name: 'نواف الرشيدي', points: 65, correct: 8,  isMe: false },
-      { name: 'رانيا السهلي', points: 40, correct: 5,  isMe: false },
-    ],
-  },
-  {
-    id: 'g2',
-    name: 'العائلة',
-    code: 'KRX-3391',
-    members: [
-      { name: 'أخي الكبير',  points: 90, correct: 11, isMe: false },
-      { name: 'أنت',          points: 72, correct: 9,  isMe: true  },
-      { name: 'أبي',          points: 60, correct: 7,  isMe: false },
-    ],
-  },
-]
+const LS_GROUPS_KEY = 'korax_ranking_groups'
+
+function loadLocalGroups() {
+  try { return JSON.parse(localStorage.getItem(LS_GROUPS_KEY) || '[]') } catch { return [] }
+}
+function saveLocalGroups(groups) {
+  localStorage.setItem(LS_GROUPS_KEY, JSON.stringify(groups))
+}
 
 export default function RankingsPage() {
   const { isLoggedIn, strapiId, strapiToken, user } = useAuth()
@@ -62,15 +46,21 @@ export default function RankingsPage() {
       .catch(() => setLeaderboard([])) // fallback: لا بيانات
   }, [])
 
-  // تحميل مجموعات المستخدم
+  // تحميل مجموعات المستخدم (Strapi أولاً، localStorage كـ fallback)
   useEffect(() => {
+    const local = loadLocalGroups()
+    if (local.length > 0) {
+      setMyGroups(local)
+      setActiveGroup(local[0].id)
+    }
     if (!isLoggedIn || !strapiToken) return
     setUserToken(strapiToken)
     getMyGroups()
       .then(data => {
-        const groups = Array.isArray(data) ? data : []
+        const groups = Array.isArray(data) && data.length > 0 ? data : local
         setMyGroups(groups)
         if (groups.length > 0 && !activeGroup) setActiveGroup(groups[0].id)
+        if (Array.isArray(data) && data.length > 0) saveLocalGroups(data)
       })
       .catch(() => {})
   }, [isLoggedIn, strapiToken])
@@ -86,10 +76,13 @@ export default function RankingsPage() {
       setShowCreate(false)
       setView('friends')
     } catch {
-      // fallback mock
-      const code = generateGroupCode()
+      const code  = generateGroupCode()
       const group = { id: `g_${Date.now()}`, name: newName.trim(), code, members: [] }
-      setMyGroups(prev => [...prev, group])
+      setMyGroups(prev => {
+        const updated = [...prev, group]
+        saveLocalGroups(updated)
+        return updated
+      })
       setActiveGroup(group.id)
       setNewName('')
       setShowCreate(false)
@@ -165,17 +158,14 @@ export default function RankingsPage() {
                 <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
               </div>
             ) : (() => {
-              // تحويل بيانات Strapi إلى الشكل المطلوب، أو استخدام mock
-              const board = leaderboard.length > 0
-                ? leaderboard.map((e, i) => ({
-                    rank:    i + 1,
-                    name:    e.username || e.name || `مستخدم ${e.userId}`,
-                    points:  e.points,
-                    correct: e.count,
-                    streak:  0,
-                    isMe:    e.userId === strapiId,
-                  }))
-                : LEADERBOARD // fallback mock
+              const board = leaderboard.map((e, i) => ({
+                rank:    i + 1,
+                name:    e.username || e.name || `مستخدم ${e.userId}`,
+                points:  e.points,
+                correct: e.count,
+                streak:  0,
+                isMe:    e.userId === strapiId,
+              }))
 
               return (
                 <>
