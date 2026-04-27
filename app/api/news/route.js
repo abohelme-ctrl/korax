@@ -4,9 +4,9 @@ import Anthropic from '@anthropic-ai/sdk'
 const NEWS_API_KEY   = process.env.NEWS_API_KEY
 const ANTHROPIC_KEY  = process.env.ANTHROPIC_API_KEY
 
-// Cache in memory (server-side) — 1 hour
+// Cache in memory (server-side) — 24 ساعة = طلب واحد فقط في اليوم
 let cache = { data: null, ts: 0 }
-const CACHE_TTL = 60 * 60 * 1000
+const CACHE_TTL = 24 * 60 * 60 * 1000
 
 export async function GET() {
   // Return cached if fresh
@@ -21,11 +21,11 @@ export async function GET() {
   try {
     // ── 1. جلب الأخبار من NewsAPI ──────────────────────────────────────────
     const url = `https://newsapi.org/v2/everything?` + new URLSearchParams({
-      q:         '"World Cup 2026" OR "FIFA 2026" OR "كأس العالم 2026"',
-      language:  'en',
-      sortBy:    'publishedAt',
-      pageSize:  '12',
-      apiKey:    NEWS_API_KEY,
+      q:        '"World Cup 2026" OR "FIFA 2026"',
+      language: 'en',
+      sortBy:   'publishedAt',
+      pageSize: '10',
+      apiKey:   NEWS_API_KEY,
     })
 
     const res      = await fetch(url, { next: { revalidate: 3600 } })
@@ -49,15 +49,15 @@ export async function GET() {
       try {
         const client = new Anthropic({ apiKey: ANTHROPIC_KEY })
 
-        // نلخص أول 8 مقالات (اقتصاداً في الـ tokens)
-        const toSummarize = articles.slice(0, 8)
+        // نلخص أول 5 مقالات فقط — اقتصاد في الـ tokens
+        const toSummarize = articles.slice(0, 5)
         const prompt = toSummarize.map((a, i) =>
           `${i + 1}. العنوان: ${a.title}\nالوصف: ${a.description}`
         ).join('\n\n')
 
         const msg = await client.messages.create({
           model:      'claude-haiku-4-5',
-          max_tokens: 1200,
+          max_tokens: 800,
           messages: [{
             role:    'user',
             content: `أنت محلل رياضي. لديك هذه الأخبار عن كأس العالم 2026.
