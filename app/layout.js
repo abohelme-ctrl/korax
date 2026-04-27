@@ -6,16 +6,34 @@ export const metadata = {
   description: 'توقعات وإحصائيات ومباريات كأس العالم 2026 — ابنِ فريقك وتنافس مع أصدقائك',
   keywords: 'كأس العالم 2026, توقعات, مباريات, كرة القدم, KoraX',
   manifest: '/manifest.json',
+  icons: {
+    icon:  '/logo.png',
+    apple: '/logo.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'KoraX',
   },
   openGraph: {
-    title: 'KoraX - كأس العالم 2026',
+    title:       'KoraX - كأس العالم 2026',
+    description: 'توقع النتائج وتنافس مع أصدقائك — Play · Predict · Win',
+    type:        'website',
+    locale:      'ar_SA',
+    url:         'https://korax.live',
+    siteName:    'KoraX',
+    images: [{
+      url:    'https://korax.live/logo.png',
+      width:  1080,
+      height: 1080,
+      alt:    'KoraX - كأس العالم 2026',
+    }],
+  },
+  twitter: {
+    card:        'summary_large_image',
+    title:       'KoraX - كأس العالم 2026',
     description: 'توقع النتائج وتنافس مع أصدقائك',
-    type: 'website',
-    locale: 'ar_SA',
+    images:      ['https://korax.live/logo.png'],
   },
 }
 
