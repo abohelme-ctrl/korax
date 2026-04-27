@@ -144,6 +144,16 @@ export default function HomePage() {
 
       </div>
 
+      {/* Footer — مطلوب من Google للتحقق */}
+      <footer className="px-4 py-6 text-center border-t border-border mt-4">
+        <p className="text-xs font-black text-primary mb-2">KoraX — كأس العالم 2026</p>
+        <p className="text-[10px] text-muted mb-3">توقع نتائج المباريات وتنافس مع أصدقائك · Play · Predict · Win</p>
+        <div className="flex items-center justify-center gap-4">
+          <Link href="/privacy" className="text-[10px] text-muted underline">سياسة الخصوصية</Link>
+          <Link href="/terms"   className="text-[10px] text-muted underline">شروط الاستخدام</Link>
+        </div>
+      </footer>
+
       <BottomNav />
     </div>
   )
