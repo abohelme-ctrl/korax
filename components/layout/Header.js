@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useState, useEffect } from 'react'
 import { formatDateAr } from '@/lib/utils'
 
@@ -25,15 +26,9 @@ export default function Header({ title, back = false, notif = true }) {
           {back ? (
             <BackButton />
           ) : (
-            <button
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              className="flex items-center gap-2 active:scale-95 transition-transform"
-            >
-              <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/40">
-                <span className="text-white font-black text-sm">K</span>
-              </div>
-              <span className="font-black text-lg text-text tracking-wide">KoraX</span>
-            </button>
+            <Link href="/" className="flex items-center gap-2 active:scale-95 transition-transform">
+              <Image src="/logo.png" alt="KoraX" width={36} height={36} className="rounded-xl" />
+            </Link>
           )}
           {title && !back && (
             <span className="text-muted text-sm hidden sm:block">{today}</span>
