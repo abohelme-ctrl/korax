@@ -8,21 +8,23 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        bg: '#0A0E1A',
-        card: '#111827',
-        'card-hover': '#1a2234',
-        border: '#1F2937',
-        primary: '#3B82F6',
-        'primary-dark': '#2563EB',
-        live: '#EF4444',
-        'live-bg': 'rgba(239,68,68,0.12)',
-        green: '#22C55E',
-        'green-bg': 'rgba(34,197,94,0.12)',
-        gold: '#F59E0B',
-        'gold-bg': 'rgba(245,158,11,0.12)',
-        text: '#F9FAFB',
-        muted: '#6B7280',
-        'muted-light': '#9CA3AF',
+        // ألوان ديناميكية (تتغير مع الثيم) — تستخدم CSS Variables
+        bg:           'rgb(var(--c-bg)      / <alpha-value>)',
+        card:         'rgb(var(--c-card)    / <alpha-value>)',
+        'card-hover': 'rgb(var(--c-card-h)  / <alpha-value>)',
+        border:       'rgb(var(--c-border)  / <alpha-value>)',
+        text:         'rgb(var(--c-text)    / <alpha-value>)',
+        muted:        'rgb(var(--c-muted)   / <alpha-value>)',
+        'muted-light':'rgb(var(--c-muted-l) / <alpha-value>)',
+        // ألوان ثابتة (لا تتغير)
+        primary:      '#3B82F6',
+        'primary-dark':'#2563EB',
+        live:         '#EF4444',
+        'live-bg':    'rgba(239,68,68,0.12)',
+        green:        '#22C55E',
+        'green-bg':   'rgba(34,197,94,0.12)',
+        gold:         '#F59E0B',
+        'gold-bg':    'rgba(245,158,11,0.12)',
       },
       fontFamily: {
         cairo: ['Cairo', 'sans-serif'],

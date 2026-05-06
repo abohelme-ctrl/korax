@@ -8,6 +8,8 @@ import Header from '@/components/layout/Header'
 import BottomNav from '@/components/layout/BottomNav'
 import { useAuth } from '@/lib/useAuth'
 import { getRandomPlayer, rarityFromPoints, saveCardToStorage } from '@/lib/players'
+import { useTheme } from '@/lib/useTheme'
+import { getScoreBreakdown, getRankTitle } from '@/lib/scoring'
 
 export default function ProfilePage() {
   const { user, strapiId, strapiToken, isLoading, isLoggedIn, logout } = useAuth()
@@ -27,9 +29,12 @@ export default function ProfilePage() {
 
   // حساب الإحصائيات
   const calculated    = predictions.filter(p => p.status === 'calculated' || p.attributes?.status === 'calculated')
-  const totalPoints   = calculated.reduce((s, p) => s + (p.points ?? p.attributes?.points ?? 0), 0)
+  const matchPoints   = calculated.reduce((s, p) => s + (p.points ?? p.attributes?.points ?? 0), 0)
   const correctExact  = calculated.filter(p => (p.points ?? p.attributes?.points) === 3).length
   const correctWinner = calculated.filter(p => (p.points ?? p.attributes?.points) === 1).length
+  const breakdown     = getScoreBreakdown(predictions)
+  const totalPoints   = breakdown.total
+  const rankInfo      = getRankTitle(totalPoints)
   const maxPoints     = Math.max(totalPoints + 50, 100)
   const progress      = Math.min((totalPoints / maxPoints) * 100, 100)
 
@@ -80,6 +85,7 @@ export default function ProfilePage() {
             <div className="flex-1">
               <p className="text-xl font-black text-text">{user?.name || user?.email || '...'}</p>
               <p className="text-muted text-xs mt-0.5">{user?.email || 'كأس العالم 2026'}</p>
+              <span className={`text-xs font-bold ${rankInfo.color}`}>{rankInfo.icon} {rankInfo.title}</span>
             </div>
             <div className="flex flex-col items-center">
               <span className="text-2xl font-black text-primary">{totalPoints}</span>
@@ -104,6 +110,27 @@ export default function ProfilePage() {
             <MiniStat label="النقاط"    value={totalPoints}          color="text-primary" />
             <MiniStat label="صحيح تام"  value={correctExact}         color="text-green"   />
             <MiniStat label="فائز فقط"  value={correctWinner}        color="text-gold"    />
+          </div>
+        </div>
+
+        {/* Score Breakdown */}
+        <div className="card p-4">
+          <p className="font-black text-sm text-text mb-3">تفصيل النقاط</p>
+          <div className="space-y-2">
+            {Object.values(breakdown).filter(v => typeof v === 'object').map(item => (
+              <div key={item.label} className="flex items-center gap-3">
+                <span className="text-xl w-7 text-center">{item.icon}</span>
+                <span className="flex-1 text-xs text-muted">{item.label}</span>
+                <span className={`text-sm font-black ${item.points > 0 ? 'text-primary' : 'text-muted'}`}>
+                  +{item.points}
+                </span>
+              </div>
+            ))}
+            <div className="flex items-center gap-3 pt-2 border-t border-border">
+              <span className="text-xl w-7 text-center">🎯</span>
+              <span className="flex-1 text-xs font-black text-text">المجموع الكلي</span>
+              <span className="text-sm font-black text-primary">{breakdown.total}</span>
+            </div>
           </div>
         </div>
 
@@ -311,6 +338,7 @@ const POPULAR_TEAMS = [
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
 function SettingsTab({ logout, userEmail }) {
+  const { theme, toggleTheme }        = useTheme()
   const [notifs, setNotifs]           = useState(true)
   const [before, setBefore]           = useState(30)
   const [favorites, setFavorites]     = useState([])
@@ -434,6 +462,16 @@ function SettingsTab({ logout, userEmail }) {
         </SettingRow>
         <SettingRow label="تنبيه الهدية اليومية">
           <Toggle value={notifs} onChange={setNotifs} />
+        </SettingRow>
+        <SettingRow label={theme === 'dark' ? 'الوضع الداكن' : 'الوضع الفاتح'}>
+          <button
+            onClick={toggleTheme}
+            className={`w-12 h-6 rounded-full transition-all relative flex-shrink-0 ${theme === 'light' ? 'bg-gold' : 'bg-card-hover border border-border'}`}
+          >
+            <span className={`absolute top-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] shadow transition-all ${theme === 'light' ? 'right-0.5 bg-white' : 'left-0.5 bg-muted/30'}`}>
+              {theme === 'light' ? '☀️' : '🌙'}
+            </span>
+          </button>
         </SettingRow>
         <SettingRow label="تسجيل الخروج">
           <button

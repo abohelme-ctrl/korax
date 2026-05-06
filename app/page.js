@@ -128,12 +128,12 @@ export default function HomePage() {
               <p className="text-[10px] text-muted">سؤال جديد كل يوم</p>
             </div>
           </Link>
-          <Link href="/stadiums"
-            className="card p-3 flex items-center gap-2.5 border-green-500/30 bg-green-500/5 active:scale-95 transition-transform">
-            <span className="text-2xl">🏟️</span>
+          <Link href="/compare"
+            className="card p-3 flex items-center gap-2.5 border-purple-500/30 bg-purple-500/5 active:scale-95 transition-transform">
+            <span className="text-2xl">⚡</span>
             <div>
-              <p className="text-xs font-black text-text">الملاعب</p>
-              <p className="text-[10px] text-muted">16 ملعب رسمي</p>
+              <p className="text-xs font-black text-text">مقارنة المنتخبات</p>
+              <p className="text-[10px] text-muted">قارن بين أي منتخبين</p>
             </div>
           </Link>
         </div>

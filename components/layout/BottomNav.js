@@ -4,11 +4,11 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const NAV_ITEMS = [
-  { href: '/',           icon: HomeIcon,      label: 'الرئيسية'  },
-  { href: '/groups',     icon: GroupsIcon,    label: 'المجموعات' },
-  { href: '/predict',    icon: PredictIcon,   label: 'توقعاتي'   },
-  { href: '/simulator',  icon: SimulatorIcon, label: 'المحاكي'   },
-  { href: '/news',       icon: NewsIcon,      label: 'الأخبار'   },
+  { href: '/',          icon: HomeIcon,      label: 'الرئيسية'  },
+  { href: '/groups',    icon: GroupsIcon,    label: 'المجموعات' },
+  { href: '/predict',   icon: PredictIcon,   label: 'توقعاتي'   },
+  { href: '/simulator', icon: SimulatorIcon, label: 'المحاكي'   },
+  { href: '/compare',   icon: CompareIcon,   label: 'مقارنة'    },
 ]
 
 export default function BottomNav() {
@@ -124,6 +124,15 @@ function NewsIcon({ size = 24, className = '' }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
       <path d="M4 22h16a2 2 0 002-2V4a2 2 0 00-2-2H8a2 2 0 00-2 2v16a2 2 0 01-2 2zm0 0a2 2 0 01-2-2v-9c0-1.1.9-2 2-2h2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
       <path d="M18 14h-8M15 18h-5M10 6h8v4h-8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+function CompareIcon({ size = 24, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M10 3H3v7h7V3zM21 3h-7v7h7V3zM10 14H3v7h7v-7zM21 14h-7v7h7v-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M13 7h-2M13 17h-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
     </svg>
   )
 }

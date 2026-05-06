@@ -49,11 +49,11 @@ export default function NewsPage() {
 
       <div className="page-content px-4 py-4">
 
-        {/* AI badge + refresh */}
+        {/* badge + refresh */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/10 border border-primary/20 flex-1 ml-2">
-            <span className="text-base">🤖</span>
-            <p className="text-xs text-primary font-bold">ملخصات بالذكاء الاصطناعي · تتجدد كل ساعة</p>
+            <span className="text-base">📡</span>
+            <p className="text-xs text-primary font-bold">مصادر عربية مباشرة · تتجدد كل ساعة</p>
           </div>
           <button
             onClick={() => loadNews(true)}
@@ -108,7 +108,7 @@ export default function NewsPage() {
 
         {!loading && (
           <p className="text-center text-[10px] text-muted mt-4 pb-2">
-            المصدر: NewsAPI · الملخصات: Claude AI (Anthropic)
+            المصادر: الجزيرة · BBC عربي · جوجل أخبار
           </p>
         )}
 
@@ -149,7 +149,7 @@ function NewsCardFeatured({ article }) {
             {article.source}
           </span>
           <span className="text-[10px] text-muted">{timeAgo(article.publishedAt)}</span>
-          <span className="mr-auto text-[10px] bg-gold/10 text-gold px-2 py-0.5 rounded-full font-bold">🤖 AI</span>
+          <span className="mr-auto text-[10px] bg-green/10 text-green px-2 py-0.5 rounded-full font-bold">🌐 عربي</span>
         </div>
         <h2 className="font-black text-text text-sm leading-snug mb-2 line-clamp-3">{title}</h2>
         {summary && <p className="text-xs text-muted leading-relaxed line-clamp-3">{summary}</p>}
@@ -194,7 +194,7 @@ function NewsCard({ article }) {
         <div className="flex items-center gap-1.5 mb-1">
           <span className="text-[9px] font-bold text-primary truncate max-w-[80px]">{article.source}</span>
           <span className="text-[9px] text-muted">· {timeAgo(article.publishedAt)}</span>
-          <span className="mr-auto text-[9px] text-gold">🤖</span>
+          <span className="mr-auto text-[9px] text-green">🌐</span>
         </div>
         <h3 className="text-xs font-black text-text leading-snug line-clamp-2 mb-1">{title}</h3>
         {summary && <p className="text-[10px] text-muted leading-relaxed line-clamp-2">{summary}</p>}
