@@ -293,42 +293,194 @@ function BadgesTab({ correct, total }) {
   )
 }
 
+const POPULAR_TEAMS = [
+  { id: '26',  name: 'الأرجنتين', flag: '🇦🇷' },
+  { id: '6',   name: 'البرازيل',  flag: '🇧🇷' },
+  { id: '2',   name: 'فرنسا',     flag: '🇫🇷' },
+  { id: '9',   name: 'إسبانيا',   flag: '🇪🇸' },
+  { id: '3',   name: 'ألمانيا',   flag: '🇩🇪' },
+  { id: '10',  name: 'إنجلترا',   flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
+  { id: '27',  name: 'البرتغال',  flag: '🇵🇹' },
+  { id: '1',   name: 'هولندا',    flag: '🇳🇱' },
+  { id: '141', name: 'السعودية',  flag: '🇸🇦' },
+  { id: '32',  name: 'المغرب',    flag: '🇲🇦' },
+  { id: '36',  name: 'مصر',       flag: '🇪🇬' },
+  { id: '33',  name: 'السنغال',   flag: '🇸🇳' },
+]
+
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
 function SettingsTab({ logout, userEmail }) {
-  const [notifs, setNotifs] = useState(true)
-  const [before, setBefore] = useState(30)
+  const [notifs, setNotifs]           = useState(true)
+  const [before, setBefore]           = useState(30)
+  const [favorites, setFavorites]     = useState([])
+  const [showFavModal, setShowFavModal] = useState(false)
+  const [deferredPrompt, setDeferred] = useState(null)
+  const [isInstalled, setIsInstalled] = useState(false)
+  const [isIOS, setIsIOS]             = useState(false)
+  const [showIOSHint, setShowIOSHint] = useState(false)
+
+  useEffect(() => {
+    // تحميل الفرق المفضلة
+    try {
+      const saved = JSON.parse(localStorage.getItem('korax_favorites') || '[]')
+      setFavorites(saved)
+    } catch {}
+
+    // PWA install detection
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true)
+      return
+    }
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent)
+    setIsIOS(ios)
+
+    const handler = e => { e.preventDefault(); setDeferred(e) }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  async function handleInstall() {
+    if (isIOS) { setShowIOSHint(true); return }
+    if (!deferredPrompt) return
+    deferredPrompt.prompt()
+    const { outcome } = await deferredPrompt.userChoice
+    if (outcome === 'accepted') setIsInstalled(true)
+  }
+
+  function toggleFav(id) {
+    setFavorites(prev => {
+      const next = prev.includes(id) ? prev.filter(x => x !== id)
+        : prev.length < 3 ? [...prev, id] : prev
+      localStorage.setItem('korax_favorites', JSON.stringify(next))
+      return next
+    })
+  }
+
+  const favTeams = POPULAR_TEAMS.filter(t => favorites.includes(t.id))
 
   return (
-    <div className="card divide-y divide-border">
-      {userEmail && (
-        <div className="px-4 py-3">
-          <p className="text-[10px] text-muted mb-0.5">البريد الإلكتروني</p>
-          <p className="text-sm font-bold text-text">{userEmail}</p>
+    <div className="space-y-3">
+
+      {/* الفريق المفضل */}
+      <div className="card p-4">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-black text-text">منتخبي المفضل</p>
+          <button
+            onClick={() => setShowFavModal(true)}
+            className="text-xs text-primary font-bold px-3 py-1 rounded-lg bg-primary/10 border border-primary/20"
+          >
+            {favTeams.length > 0 ? 'تغيير' : 'اختر'}
+          </button>
+        </div>
+        {favTeams.length > 0 ? (
+          <div className="flex gap-2">
+            {favTeams.map(t => (
+              <div key={t.id} className="flex flex-col items-center gap-1 flex-1">
+                <span className="text-3xl">{t.flag}</span>
+                <span className="text-[9px] text-muted text-center">{t.name}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-muted">لم تختر منتخباً بعد — اختر حتى 3 منتخبات</p>
+        )}
+      </div>
+
+      {/* تثبيت التطبيق */}
+      {!isInstalled && (
+        <div className="card p-4">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">📲</span>
+            <div className="flex-1">
+              <p className="text-sm font-black text-text">ثبّت KoraX على هاتفك</p>
+              <p className="text-xs text-muted">وصول سريع مثل التطبيقات</p>
+            </div>
+            <button
+              onClick={handleInstall}
+              className="px-3 py-2 rounded-xl bg-primary text-white text-xs font-bold active:scale-95 transition-transform"
+            >
+              تثبيت
+            </button>
+          </div>
+          {showIOSHint && (
+            <div className="mt-3 p-3 rounded-xl bg-primary/10 border border-primary/20">
+              <p className="text-xs text-primary text-center">
+                اضغط <span className="font-black">↑ مشاركة</span> ثم <span className="font-black">"أضف إلى الشاشة الرئيسية"</span>
+              </p>
+            </div>
+          )}
         </div>
       )}
-      <SettingRow label="إشعار قبل المباراة">
-        <select
-          value={before}
-          onChange={e => setBefore(Number(e.target.value))}
-          className="bg-bg border border-border rounded-lg px-2 py-1 text-xs text-text"
-        >
-          <option value={15}>15 دقيقة</option>
-          <option value={30}>30 دقيقة</option>
-          <option value={60}>ساعة</option>
-        </select>
-      </SettingRow>
-      <SettingRow label="تنبيه الهدية اليومية">
-        <Toggle value={notifs} onChange={setNotifs} />
-      </SettingRow>
-      <SettingRow label="تسجيل الخروج">
-        <button
-          onClick={logout}
-          className="text-xs font-bold text-live px-3 py-1 rounded-lg bg-live-bg border border-live/30"
-        >
-          خروج
-        </button>
-      </SettingRow>
+
+      {/* باقي الإعدادات */}
+      <div className="card divide-y divide-border">
+        {userEmail && (
+          <div className="px-4 py-3">
+            <p className="text-[10px] text-muted mb-0.5">البريد الإلكتروني</p>
+            <p className="text-sm font-bold text-text">{userEmail}</p>
+          </div>
+        )}
+        <SettingRow label="إشعار قبل المباراة">
+          <select
+            value={before}
+            onChange={e => setBefore(Number(e.target.value))}
+            className="bg-bg border border-border rounded-lg px-2 py-1 text-xs text-text"
+          >
+            <option value={15}>15 دقيقة</option>
+            <option value={30}>30 دقيقة</option>
+            <option value={60}>ساعة</option>
+          </select>
+        </SettingRow>
+        <SettingRow label="تنبيه الهدية اليومية">
+          <Toggle value={notifs} onChange={setNotifs} />
+        </SettingRow>
+        <SettingRow label="تسجيل الخروج">
+          <button
+            onClick={logout}
+            className="text-xs font-bold text-live px-3 py-1 rounded-lg bg-live-bg border border-live/30"
+          >
+            خروج
+          </button>
+        </SettingRow>
+      </div>
+
+      {/* Modal اختيار الفريق */}
+      {showFavModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setShowFavModal(false)}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative w-full max-w-[480px] bg-card rounded-t-3xl p-6 pb-10" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 bg-border rounded-full mx-auto mb-4" />
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-black text-text">اختر منتخبك المفضل</h2>
+              <span className="text-xs text-muted">{favorites.length}/3</span>
+            </div>
+            <div className="grid grid-cols-6 gap-2 mb-5">
+              {POPULAR_TEAMS.map(team => {
+                const sel = favorites.includes(team.id)
+                return (
+                  <button
+                    key={team.id}
+                    onClick={() => toggleFav(team.id)}
+                    className={`flex flex-col items-center gap-1 p-2 rounded-2xl transition-all border-2 ${
+                      sel ? 'bg-primary/20 border-primary' : 'bg-bg border-border'
+                    }`}
+                  >
+                    <span className="text-2xl">{team.flag}</span>
+                    <span className="text-[8px] font-bold text-text leading-tight text-center">{team.name}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <button
+              onClick={() => setShowFavModal(false)}
+              className="w-full py-4 rounded-2xl bg-primary text-white font-bold text-sm"
+            >
+              حفظ
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -49,21 +49,20 @@ export async function GET() {
       try {
         const client = new Anthropic({ apiKey: ANTHROPIC_KEY })
 
-        // نلخص أول 5 مقالات فقط — اقتصاد في الـ tokens
-        const toSummarize = articles.slice(0, 5)
+        // نترجم كل المقالات دفعة واحدة
+        const toSummarize = articles
         const prompt = toSummarize.map((a, i) =>
           `${i + 1}. العنوان: ${a.title}\nالوصف: ${a.description}`
         ).join('\n\n')
 
         const msg = await client.messages.create({
           model:      'claude-haiku-4-5',
-          max_tokens: 800,
+          max_tokens: 1600,
           messages: [{
             role:    'user',
-            content: `أنت محلل رياضي. لديك هذه الأخبار عن كأس العالم 2026.
-ترجمها وقدم ملخصاً عربياً موجزاً لكل منها (جملة أو جملتان فقط).
-أجب بـ JSON array بهذا الشكل بالضبط (${toSummarize.length} عنصر):
-[{"titleAr":"...","summaryAr":"..."}]
+            content: `أنت محلل رياضي متخصص في كأس العالم. ترجم هذه الأخبار إلى العربية وقدم ملخصاً موجزاً لكل منها (جملتان فقط بالعربية الفصحى).
+أجب بـ JSON array فقط بهذا الشكل بالضبط (${toSummarize.length} عنصر، بدون أي نص خارج الـ JSON):
+[{"titleAr":"العنوان بالعربية","summaryAr":"الملخص بالعربية"}]
 
 الأخبار:
 ${prompt}`,
