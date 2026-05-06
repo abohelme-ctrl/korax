@@ -120,6 +120,22 @@ export default function HomePage() {
               <p className="text-[10px] text-muted">جهّز الكأس بنفسك</p>
             </div>
           </Link>
+          <Link href="/quiz"
+            className="card p-3 flex items-center gap-2.5 border-indigo-500/30 bg-indigo-500/5 active:scale-95 transition-transform">
+            <span className="text-2xl">❓</span>
+            <div>
+              <p className="text-xs font-black text-text">التحدي اليومي</p>
+              <p className="text-[10px] text-muted">سؤال جديد كل يوم</p>
+            </div>
+          </Link>
+          <Link href="/stadiums"
+            className="card p-3 flex items-center gap-2.5 border-green-500/30 bg-green-500/5 active:scale-95 transition-transform">
+            <span className="text-2xl">🏟️</span>
+            <div>
+              <p className="text-xs font-black text-text">الملاعب</p>
+              <p className="text-[10px] text-muted">16 ملعب رسمي</p>
+            </div>
+          </Link>
         </div>
 
         {/* ── Today's matches or schedule ── */}
