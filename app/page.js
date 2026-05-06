@@ -102,6 +102,26 @@ export default function HomePage() {
         {/* ── Countdown Hero ── */}
         {!started && countdown && <CountdownHero countdown={countdown} />}
 
+        {/* ── Quick Feature Cards ── */}
+        <div className="px-4 pt-3 pb-1 grid grid-cols-2 gap-2">
+          <Link href="/predict"
+            className="card p-3 flex items-center gap-2.5 border-gold/30 bg-gold/5 active:scale-95 transition-transform">
+            <span className="text-2xl">🏆</span>
+            <div>
+              <p className="text-xs font-black text-text">توقعاتي الكبرى</p>
+              <p className="text-[10px] text-muted">من سيتوج؟ الهداف؟</p>
+            </div>
+          </Link>
+          <Link href="/simulator"
+            className="card p-3 flex items-center gap-2.5 border-primary/30 bg-primary/5 active:scale-95 transition-transform">
+            <span className="text-2xl">🏟️</span>
+            <div>
+              <p className="text-xs font-black text-text">محاكي البطولة</p>
+              <p className="text-[10px] text-muted">جهّز الكأس بنفسك</p>
+            </div>
+          </Link>
+        </div>
+
         {/* ── Today's matches or schedule ── */}
         {!started && loadingAll && (
           <div className="flex items-center justify-center py-4 gap-2">

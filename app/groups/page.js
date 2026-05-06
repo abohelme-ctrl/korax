@@ -41,9 +41,9 @@ const GROUPS = [
   ]},
   { id: 'F', teams: [
     { id: '1',    name: 'هولندا',            flag: '🇳🇱', stars: 0 },
-    { id: '26',   name: 'اليابان',           flag: '🇯🇵', stars: 0 },
+    { id: '2601', name: 'اليابان',           flag: '🇯🇵', stars: 0 },
     { id: '744',  name: 'السويد',            flag: '🇸🇪', stars: 0 },
-    { id: '46',   name: 'تونس',              flag: '🇹🇳', stars: 0 },
+    { id: '4601', name: 'تونس',              flag: '🇹🇳', stars: 0 },
   ]},
   { id: 'G', teams: [
     { id: '4',    name: 'بلجيكا',            flag: '🇧🇪', stars: 0 },
@@ -77,7 +77,7 @@ const GROUPS = [
   ]},
   { id: 'L', teams: [
     { id: '10',   name: 'إنجلترا',           flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', stars: 1 },
-    { id: '3',    name: 'كرواتيا',           flag: '🇭🇷', stars: 0 },
+    { id: '3001', name: 'كرواتيا',           flag: '🇭🇷', stars: 0 },
     { id: '14',   name: 'غانا',              flag: '🇬🇭', stars: 0 },
     { id: '1536', name: 'بنما',              flag: '🇵🇦', stars: 0 },
   ]},
