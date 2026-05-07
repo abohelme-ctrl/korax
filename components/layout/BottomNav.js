@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { href: '/groups',    icon: GroupsIcon,    label: 'المجموعات' },
   { href: '/predict',   icon: PredictIcon,   label: 'توقعاتي'   },
   { href: '/simulator', icon: SimulatorIcon, label: 'المحاكي'   },
-  { href: '/compare',   icon: CompareIcon,   label: 'مقارنة'    },
+  { href: '/news',      icon: NewsIcon,      label: 'الأخبار'   },
 ]
 
 export default function BottomNav() {
