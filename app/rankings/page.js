@@ -7,7 +7,7 @@ import Header from '@/components/layout/Header'
 import BottomNav from '@/components/layout/BottomNav'
 import { getInitials, generateGroupCode } from '@/lib/utils'
 import { useAuth } from '@/lib/useAuth'
-import { getLeaderboard, getMyGroups, createGroup, joinGroup, setUserToken } from '@/lib/strapi'
+import { getLeaderboard, getMyGroups, createGroup, joinGroup, setUserToken, deleteGroup, removeMemberFromGroup } from '@/lib/strapi'
 
 const VIEWS = [
   { id: 'global',  label: '🌍 العام'     },
@@ -125,6 +125,30 @@ export default function RankingsPage() {
     }
   }
 
+  async function handleDeleteGroup(groupId) {
+    try {
+      await deleteGroup(groupId)
+      const updated = myGroups.filter(g => g.id !== groupId)
+      setMyGroups(updated)
+      saveLocalGroups(updated)
+      setActiveGroup(updated[0]?.id || null)
+    } catch {
+      alert('تعذّر حذف المجموعة، حاول مرة أخرى')
+    }
+  }
+
+  async function handleRemoveMember(groupId, userId) {
+    try {
+      await removeMemberFromGroup(groupId, userId)
+      setMyGroups(prev => prev.map(g => {
+        if (g.id !== groupId) return g
+        return { ...g, members: (g.members || []).filter(m => (m.userId || m.id) !== userId) }
+      }))
+    } catch {
+      alert('تعذّر طرد العضو، حاول مرة أخرى')
+    }
+  }
+
   const current = myGroups.find(g => g.id === activeGroup)
 
   return (
@@ -215,7 +239,14 @@ export default function RankingsPage() {
 
             {/* Current group */}
             {current ? (
-              <GroupLeaderboard group={current} onShare={() => handleShare(current)} copied={copied} myUserId={strapiId} />
+              <GroupLeaderboard
+                group={current}
+                onShare={() => handleShare(current)}
+                copied={copied}
+                myUserId={strapiId}
+                onDelete={handleDeleteGroup}
+                onRemoveMember={handleRemoveMember}
+              />
             ) : (
               <EmptyGroups />
             )}
@@ -304,16 +335,33 @@ export default function RankingsPage() {
 
 // ─── Group Leaderboard ─────────────────────────────────────────────────────────
 
-function GroupLeaderboard({ group, onShare, copied, myUserId }) {
-  // دعم بنية Strapi (members as user objects) و mock (members with points)
+function GroupLeaderboard({ group, onShare, copied, myUserId, onDelete, onRemoveMember }) {
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [removing, setRemoving]           = useState(null)
+
+  const adminId = group.admin?.id || group.adminId || null
+  const isAdmin = adminId === myUserId
+
   const members = (group.members || group.leaderboard || []).map((m, i) => ({
+    userId:  m.userId || m.id,
     name:    m.username || m.name || `عضو ${i + 1}`,
     points:  m.points ?? 0,
     correct: m.count ?? m.correct ?? 0,
-    isMe:    m.userId === myUserId || m.isMe,
+    isMe:    m.userId === myUserId || m.id === myUserId || m.isMe,
+    isAdmin: (m.userId || m.id) === adminId || m.id === adminId,
   }))
   const sorted = [...members].sort((a, b) => b.points - a.points)
   const me     = sorted.find(m => m.isMe)
+
+  async function handleRemove(member) {
+    if (!window.confirm(`هل تريد طرد "${member.name}" من المجموعة؟`)) return
+    setRemoving(member.userId)
+    try {
+      await onRemoveMember(group.id, member.userId)
+    } finally {
+      setRemoving(null)
+    }
+  }
 
   return (
     <div className="card overflow-hidden">
@@ -321,8 +369,11 @@ function GroupLeaderboard({ group, onShare, copied, myUserId }) {
       <div className="px-4 py-3 border-b border-border">
         <div className="flex items-center justify-between mb-2">
           <div>
-            <p className="font-black text-text">{group.name}</p>
-            <p className="text-xs text-muted">{group.members.length} أعضاء</p>
+            <div className="flex items-center gap-2">
+              <p className="font-black text-text">{group.name}</p>
+              {isAdmin && <span className="text-xs bg-gold/20 text-gold px-2 py-0.5 rounded-full font-bold">👑 مدير</span>}
+            </div>
+            <p className="text-xs text-muted">{(group.members || []).length} أعضاء</p>
           </div>
           <button
             onClick={onShare}
@@ -337,7 +388,7 @@ function GroupLeaderboard({ group, onShare, copied, myUserId }) {
           <span className="text-xs text-muted">كود الانضمام:</span>
           <span className="font-black text-primary tracking-widest text-sm flex-1">{group.code}</span>
           <button
-            onClick={() => { navigator.clipboard.writeText(group.code); }}
+            onClick={() => { navigator.clipboard.writeText(group.code) }}
             className="text-[10px] text-muted bg-card border border-border px-2 py-1 rounded-lg"
           >
             نسخ
@@ -357,13 +408,52 @@ function GroupLeaderboard({ group, onShare, copied, myUserId }) {
 
       {/* Members */}
       {sorted.map((member, i) => (
-        <GroupMemberRow key={i} member={member} rank={i + 1} />
+        <GroupMemberRow
+          key={i}
+          member={member}
+          rank={i + 1}
+          isAdmin={isAdmin}
+          removing={removing === member.userId}
+          onRemove={() => handleRemove(member)}
+        />
       ))}
+
+      {/* Admin: Delete Group */}
+      {isAdmin && (
+        <div className="px-4 py-3 border-t border-border">
+          {!confirmDelete ? (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="w-full py-2.5 rounded-xl border border-live/30 text-live text-xs font-bold active:scale-95 transition-transform"
+            >
+              🗑️ حذف المجموعة
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-center text-muted">هل أنت متأكد؟ لا يمكن التراجع</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onDelete(group.id)}
+                  className="flex-1 py-2.5 rounded-xl bg-live text-white text-xs font-bold active:scale-95 transition-transform"
+                >
+                  نعم، احذف
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-card border border-border text-muted text-xs font-bold active:scale-95 transition-transform"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
-function GroupMemberRow({ member, rank }) {
+function GroupMemberRow({ member, rank, isAdmin, removing, onRemove }) {
   const medals = ['🥇', '🥈', '🥉']
   return (
     <div className={`flex items-center gap-3 px-4 py-3 border-b border-border last:border-b-0 ${member.isMe ? 'bg-primary/5' : ''}`}>
@@ -376,12 +466,27 @@ function GroupMemberRow({ member, rank }) {
         {getInitials(member.name)}
       </div>
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-bold truncate ${member.isMe ? 'text-primary' : 'text-text'}`}>{member.name}</p>
+        <div className="flex items-center gap-1">
+          <p className={`text-sm font-bold truncate ${member.isMe ? 'text-primary' : 'text-text'}`}>{member.name}</p>
+          {member.isAdmin && <span className="text-xs">👑</span>}
+        </div>
         <p className="text-[10px] text-muted">{member.correct} توقع صحيح</p>
       </div>
-      <div className="text-left">
-        <p className="text-lg font-black text-text">{member.points}</p>
-        <p className="text-[10px] text-muted text-center">نقطة</p>
+      <div className="flex items-center gap-2">
+        <div className="text-left">
+          <p className="text-lg font-black text-text">{member.points}</p>
+          <p className="text-[10px] text-muted text-center">نقطة</p>
+        </div>
+        {/* زر الطرد - للمدير فقط وليس على نفسه */}
+        {isAdmin && !member.isMe && !member.isAdmin && (
+          <button
+            onClick={onRemove}
+            disabled={removing}
+            className="text-[10px] text-live border border-live/30 px-2 py-1 rounded-lg active:scale-95 transition-transform disabled:opacity-50"
+          >
+            {removing ? '...' : 'طرد'}
+          </button>
+        )}
       </div>
     </div>
   )
