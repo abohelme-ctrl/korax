@@ -24,13 +24,20 @@ export default function PredictPage() {
   const [loadingMatch, setLoadingMatch] = useState(true)
   const [existing, setExisting] = useState(null)
   const [error, setError]       = useState(null)
+  const [isLocked, setIsLocked] = useState(false)
 
-  // تحميل بيانات المباراة
+  // تحميل بيانات المباراة + فحص القفل
   useEffect(() => {
     fetchMatchDetails(id)
       .then(m => {
         setMatch(m)
         if (m.status !== 'UPCOMING') router.replace(`/match/${id}`)
+        // قفل تلقائي قبل ساعة من الكيك أوف
+        if (m.startTime) {
+          const kickoff = new Date(m.startTime).getTime()
+          const now     = Date.now()
+          if (now >= kickoff - 60 * 60 * 1000) setIsLocked(true)
+        }
       })
       .finally(() => setLoadingMatch(false))
   }, [id, router])
@@ -165,23 +172,31 @@ export default function PredictPage() {
 
         {/* Save button */}
         <div className="pb-10 pt-6">
-          <button
-            onClick={handleSave}
-            disabled={saving || saved}
-            className={`
-              w-full py-5 rounded-2xl font-black text-xl transition-all duration-300
-              ${saved
-                ? 'bg-green text-white scale-95'
-                : 'bg-primary text-white active:scale-95 shadow-lg shadow-primary/40'
-              }
-              disabled:opacity-80
-            `}
-          >
-            {saved   ? '✓ تم الحفظ' :
-             saving  ? 'جاري الحفظ...' :
-             existing ? 'تعديل التوقع' :
-             'حفظ التوقع'}
-          </button>
+          {isLocked ? (
+            <div className="w-full py-5 rounded-2xl bg-live/10 border border-live/30 flex flex-col items-center gap-1">
+              <span className="text-2xl">🔒</span>
+              <span className="font-black text-live text-base">انتهى وقت التوقع</span>
+              <span className="text-xs text-live/70">يُقفل التوقع قبل ساعة من بدء المباراة</span>
+            </div>
+          ) : (
+            <button
+              onClick={handleSave}
+              disabled={saving || saved}
+              className={`
+                w-full py-5 rounded-2xl font-black text-xl transition-all duration-300
+                ${saved
+                  ? 'bg-green text-white scale-95'
+                  : 'bg-primary text-white active:scale-95 shadow-lg shadow-primary/40'
+                }
+                disabled:opacity-80
+              `}
+            >
+              {saved   ? '✓ تم الحفظ' :
+               saving  ? 'جاري الحفظ...' :
+               existing ? 'تعديل التوقع' :
+               'حفظ التوقع'}
+            </button>
+          )}
         </div>
 
       </div>

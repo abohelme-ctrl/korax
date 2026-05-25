@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const AWARDS = [
   { id: 'champion',   label: '🏆 بطل كأس العالم',   pts: 50, type: 'team'   },
@@ -19,6 +19,20 @@ export default function AdminPage() {
   const [result, setResult]   = useState(null)
   const [loading, setLoading] = useState(false)
 
+  // ─── Lock state ─────────────────────────────────────────────────────────────
+  const [lockSettings, setLockSettings] = useState({ awardsLocked: false, lockedGroups: [] })
+  const [lockLoading, setLockLoading]   = useState(false)
+  const [lockResult,  setLockResult]    = useState(null)
+
+  // ─── Auto-process state ──────────────────────────────────────────────────────
+  const [cronLoading, setCronLoading] = useState(false)
+  const [cronResult,  setCronResult]  = useState(null)
+
+  useEffect(() => {
+    if (!authed) return
+    fetch('/api/settings').then(r => r.json()).then(s => setLockSettings(s)).catch(() => {})
+  }, [authed])
+
   // ─── Match fields ───────────────────────────────────────────────────────────
   const [matchId, setMatchId]       = useState('')
   const [actualHome, setActualHome] = useState('')
@@ -32,6 +46,40 @@ export default function AdminPage() {
   const [group, setGroup]       = useState('A')
   const [slot, setSlot]         = useState('1st')
   const [actualTeam, setActualTeam] = useState('')
+
+  async function runCron() {
+    setCronLoading(true)
+    setCronResult(null)
+    try {
+      const res  = await fetch(`/api/cron/process-results?secret=${encodeURIComponent(secret)}`, { method: 'GET' })
+      const data = await res.json()
+      setCronResult(data)
+    } catch (e) {
+      setCronResult({ error: e.message })
+    } finally {
+      setCronLoading(false)
+    }
+  }
+
+  async function sendLock(action, value) {
+    setLockLoading(true)
+    setLockResult(null)
+    try {
+      const res = await fetch('/api/admin/lock', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ secret, action, value }),
+      })
+      const data = await res.json()
+      if (res.status === 401) { setAuthed(false); return }
+      if (data.settings) setLockSettings(data.settings)
+      setLockResult(data.ok ? '✅ تم التحديث' : `❌ ${data.error}`)
+    } catch (e) {
+      setLockResult(`❌ ${e.message}`)
+    } finally {
+      setLockLoading(false)
+    }
+  }
 
   async function call(body) {
     setLoading(true)
@@ -92,16 +140,18 @@ export default function AdminPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6">
+      <div className="grid grid-cols-2 gap-2 mb-6">
         {[
+          { id: 'auto',  label: '🤖 تلقائي'  },
           { id: 'match', label: '⚽ مباريات' },
           { id: 'award', label: '🏆 جوائز'   },
           { id: 'group', label: '📊 مجموعات' },
+          { id: 'lock',  label: '🔒 القفل'   },
         ].map(t => (
           <button
             key={t.id}
-            onClick={() => { setTab(t.id); setResult(null) }}
-            className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${
+            onClick={() => { setTab(t.id); setResult(null); setLockResult(null); setCronResult(null) }}
+            className={`py-2.5 rounded-xl font-bold text-sm transition-all ${
               tab === t.id ? 'bg-primary text-white' : 'bg-card border border-border text-muted'
             }`}
           >
@@ -254,6 +304,241 @@ export default function AdminPage() {
           >
             {loading ? '⏳ جاري المعالجة...' : '✅ احسب النقاط'}
           </button>
+        </div>
+      )}
+
+      {/* ══ التلقائي ══ */}
+      {tab === 'auto' && (
+        <div className="space-y-4">
+          <div className="card p-5 space-y-3">
+            <p className="font-black text-text">🤖 معالجة النتائج تلقائياً</p>
+
+            <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 text-xs text-muted space-y-1.5">
+              <p>⚽ <span className="text-text font-bold">مباريات:</span> نتائج اليوم وأمس (FT/AET/PEN)</p>
+              <p>📊 <span className="text-text font-bold">مجموعات:</span> بعد اكتمال الجولات الثلاث لكل مجموعة</p>
+              <p>🏆 <span className="text-text font-bold">جوائز:</span> بطل + وصيف (من النهائي) + هداف (من API)</p>
+              <p className="text-gold">⚠️ أفضل لاعب ومنتخب المفاجأة: يحتاجان إدخالاً يدوياً</p>
+            </div>
+
+            <button
+              onClick={runCron}
+              disabled={cronLoading}
+              className="w-full py-4 rounded-2xl bg-primary text-white font-black disabled:opacity-50 active:scale-95 transition-transform flex items-center justify-center gap-2"
+            >
+              {cronLoading
+                ? <><span className="animate-spin inline-block">⚙️</span><span>جاري المعالجة...</span></>
+                : <><span>🔄</span><span>شغّل الآن</span></>
+              }
+            </button>
+          </div>
+
+          {/* نتيجة الكرون */}
+          {cronResult && (
+            <div className={`card p-4 border-2 ${cronResult.error ? 'border-live/40 bg-live/5' : 'border-green-400/40 bg-green-400/5'}`}>
+              {cronResult.error ? (
+                <p className="text-live font-bold text-sm">❌ {cronResult.error}</p>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="font-black text-text">✅ اكتملت المعالجة</p>
+                    <p className="text-[10px] text-muted">
+                      {cronResult.timestamp ? new Date(cronResult.timestamp).toLocaleTimeString('ar') : ''}
+                    </p>
+                  </div>
+
+                  {/* إجماليات */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="text-center bg-bg/60 rounded-xl p-2">
+                      <p className="text-lg font-black text-primary">{cronResult.processedMatches ?? 0}</p>
+                      <p className="text-[9px] text-muted">مباريات</p>
+                    </div>
+                    <div className="text-center bg-bg/60 rounded-xl p-2">
+                      <p className="text-lg font-black text-gold">{cronResult.processedGroups ?? 0}</p>
+                      <p className="text-[9px] text-muted">مجموعات</p>
+                    </div>
+                    <div className="text-center bg-bg/60 rounded-xl p-2">
+                      <p className="text-lg font-black text-purple-400">{cronResult.processedAwards ?? 0}</p>
+                      <p className="text-[9px] text-muted">جوائز</p>
+                    </div>
+                  </div>
+
+                  <p className="text-center text-xs text-muted">
+                    إجمالي التوقعات المحدّثة: <span className="text-text font-black">{cronResult.totalPredictionsUpdated ?? 0}</span>
+                  </p>
+
+                  {/* تفاصيل المباريات */}
+                  {cronResult.matches?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold text-text mb-1.5">⚽ المباريات</p>
+                      <div className="space-y-1 max-h-40 overflow-y-auto">
+                        {cronResult.matches.map((m, i) => (
+                          <div key={i} className="flex items-center justify-between bg-bg/60 rounded-xl px-3 py-1.5 text-xs">
+                            <span className="text-muted font-mono text-[10px]">#{m.matchId}</span>
+                            <span className="font-black text-text">{m.homeScore} - {m.awayScore}</span>
+                            <div className="flex gap-2">
+                              <span className="text-green-400">{m.exact}✓✓</span>
+                              <span className="text-gold">{m.winner}✓</span>
+                              <span className="text-muted">{m.wrong}✗</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* تفاصيل المجموعات */}
+                  {cronResult.groups?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold text-text mb-1.5">📊 المجموعات</p>
+                      <div className="space-y-1">
+                        {cronResult.groups.map((g, i) => (
+                          <div key={i} className="flex items-center justify-between bg-bg/60 rounded-xl px-3 py-1.5 text-xs">
+                            <span className="font-bold text-gold">
+                              {g.slot === '1st' ? '🥇' : '🥈'} {g.group}
+                            </span>
+                            <span className="text-text font-bold">{g.actualTeam}</span>
+                            <div className="flex gap-2">
+                              <span className="text-green-400">{g.correct}✓</span>
+                              <span className="text-muted">{g.wrong}✗</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* تفاصيل الجوائز */}
+                  {cronResult.awards?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold text-text mb-1.5">🏆 الجوائز</p>
+                      <div className="space-y-1">
+                        {cronResult.awards.map((a, i) => (
+                          <div key={i} className="flex items-center justify-between bg-bg/60 rounded-xl px-3 py-1.5 text-xs">
+                            <span className="font-bold text-purple-400">{a.awardId}</span>
+                            <span className="text-text">{a.actualValue}</span>
+                            <div className="flex gap-2">
+                              <span className="text-green-400">{a.correct}✓</span>
+                              <span className="text-muted">{a.wrong}✗</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {cronResult.totalPredictionsUpdated === 0 && (
+                    <p className="text-xs text-muted text-center">لا توجد توقعات معلقة لمعالجتها الآن</p>
+                  )}
+
+                  {cronResult.errors?.length > 0 && (
+                    <div className="p-2 rounded-xl bg-live/5 border border-live/20">
+                      {cronResult.errors.map((e, i) => (
+                        <p key={i} className="text-[10px] text-live">⚠️ {e}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* معلومة الـ Cron */}
+          <div className="card p-4 border-border/40">
+            <p className="text-xs text-muted leading-relaxed">
+              ⏱️ <span className="text-text font-bold">جدول تلقائي:</span> كل 30 دقيقة عبر Vercel Cron.
+              <br/>
+              أضف <code className="text-primary">CRON_SECRET</code> = نفس <code className="text-primary">ADMIN_SECRET</code> في Vercel.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ══ القفل ══ */}
+      {tab === 'lock' && (
+        <div className="space-y-4">
+          {/* قفل الجوائز */}
+          <div className="card p-5 space-y-3">
+            <p className="font-black text-text">🏆 قفل توقعات الجوائز</p>
+            <p className="text-xs text-muted">قفل الجوائز قبل دور الـ16 (لا يمكن تعديلها بعد ذلك)</p>
+            <div className="flex items-center justify-between">
+              <span className={`text-sm font-bold ${lockSettings.awardsLocked ? 'text-live' : 'text-green-400'}`}>
+                {lockSettings.awardsLocked ? '🔒 مقفل' : '🔓 مفتوح'}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => sendLock('lock_awards', false)}
+                  disabled={lockLoading || !lockSettings.awardsLocked}
+                  className="px-4 py-2 rounded-xl bg-green-500/20 text-green-400 text-sm font-bold disabled:opacity-40"
+                >
+                  فتح
+                </button>
+                <button
+                  onClick={() => sendLock('lock_awards', true)}
+                  disabled={lockLoading || lockSettings.awardsLocked}
+                  className="px-4 py-2 rounded-xl bg-live/20 text-live text-sm font-bold disabled:opacity-40"
+                >
+                  قفل
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* قفل المجموعات */}
+          <div className="card p-5 space-y-3">
+            <p className="font-black text-text">📊 قفل توقعات المجموعات</p>
+            <p className="text-xs text-muted">اقفل مجموعة بعد انتهاء مباراتها الأولى</p>
+            <div className="grid grid-cols-4 gap-2">
+              {GROUPS.map(g => {
+                const isLocked = lockSettings.lockedGroups.includes(g)
+                return (
+                  <button
+                    key={g}
+                    onClick={() => sendLock(isLocked ? 'unlock_group' : 'lock_group', g)}
+                    disabled={lockLoading}
+                    className={`py-2.5 rounded-xl text-sm font-black transition-all ${
+                      isLocked
+                        ? 'bg-live/20 text-live border border-live/30'
+                        : 'bg-card border border-border text-muted'
+                    }`}
+                  >
+                    {isLocked ? '🔒' : '🔓'} {g}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => sendLock('lock_all_groups', GROUPS)}
+                disabled={lockLoading}
+                className="flex-1 py-2 rounded-xl bg-live/10 text-live text-xs font-bold border border-live/20"
+              >
+                قفل الكل
+              </button>
+              <button
+                onClick={() => sendLock('unlock_all_groups', [])}
+                disabled={lockLoading}
+                className="flex-1 py-2 rounded-xl bg-green-500/10 text-green-400 text-xs font-bold border border-green-500/20"
+              >
+                فتح الكل
+              </button>
+            </div>
+          </div>
+
+          {/* ملاحظة المباريات */}
+          <div className="card p-4 border border-border/40">
+            <p className="text-xs text-muted leading-relaxed">
+              ⏱️ <span className="text-text font-bold">توقعات المباريات</span> تُقفل تلقائياً قبل ساعة من موعد الكيك أوف — لا تحتاج إجراء يدوي.
+            </p>
+          </div>
+
+          {/* نتيجة القفل */}
+          {lockResult && (
+            <div className={`card p-4 border-2 ${lockResult.startsWith('✅') ? 'border-green-400/40 bg-green-400/5' : 'border-live/40 bg-live/5'}`}>
+              <p className={`font-bold text-sm ${lockResult.startsWith('✅') ? 'text-green-400' : 'text-live'}`}>
+                {lockResult}
+              </p>
+            </div>
+          )}
         </div>
       )}
 

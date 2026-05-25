@@ -110,6 +110,12 @@ export default function PredictPage() {
   const [toast, setToast]           = useState('')
   const [showCard, setShowCard]     = useState(false)
   const [saving, setSaving]         = useState(false)
+  const [locks, setLocks]           = useState({ awardsLocked: false, lockedGroups: [] })
+
+  // ─── تحميل إعدادات القفل ────────────────────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/settings').then(r => r.json()).then(s => setLocks(s)).catch(() => {})
+  }, [])
 
   // ─── تحميل من localStorage ──────────────────────────────────────────────────
   useEffect(() => {
@@ -285,6 +291,14 @@ export default function PredictPage() {
         ════════════════════════════════════════════════════════════════════════ */}
         {tab === 'awards' && (
           <>
+            {/* تنبيه قفل الجوائز */}
+            {locks.awardsLocked && (
+              <div className="mx-4 mb-1 p-3 rounded-2xl bg-live/10 border border-live/30 flex items-center gap-2">
+                <span className="text-lg">🔒</span>
+                <p className="text-sm font-bold text-live">توقعات الجوائز مغلقة — انتهى وقت التعديل</p>
+              </div>
+            )}
+
             {/* Progress */}
             <div className="px-4 pb-2">
               <div className="h-1.5 bg-card rounded-full overflow-hidden">
@@ -298,9 +312,10 @@ export default function PredictPage() {
             {/* Award Cards */}
             <div className="px-4 space-y-3">
               {AWARDS.map(award => {
-                const pick = awardPicks[award.id]
+                const pick    = awardPicks[award.id]
+                const locked  = locks.awardsLocked
                 return (
-                  <div key={award.id} className={`card border-2 ${award.color} overflow-hidden`}>
+                  <div key={award.id} className={`card border-2 ${award.color} overflow-hidden ${locked ? 'opacity-80' : ''}`}>
                     <div className="p-4">
                       <div className="flex items-center gap-3">
                         <span className="text-3xl">{award.icon}</span>
@@ -309,10 +324,11 @@ export default function PredictPage() {
                           <p className="text-[11px] text-muted">{award.desc}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                            {award.pts} نقطة
-                          </span>
-                          {pick && (
+                          {locked
+                            ? <span className="text-[11px] font-black text-live bg-live/10 px-2 py-0.5 rounded-full">🔒 مغلق</span>
+                            : <span className="text-[11px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full">{award.pts} نقطة</span>
+                          }
+                          {pick && !locked && (
                             <button onClick={() => removeAwardPick(award.id)} className="text-muted text-xs p-1">✕</button>
                           )}
                         </div>
@@ -320,8 +336,8 @@ export default function PredictPage() {
 
                       {pick ? (
                         <button
-                          onClick={() => { setModal({ type: 'award', id: award.id }); setSearch('') }}
-                          className="mt-3 flex items-center gap-3 w-full bg-bg/60 rounded-xl p-3 active:scale-95 transition-transform"
+                          onClick={() => !locked && (setModal({ type: 'award', id: award.id }), setSearch(''))}
+                          className={`mt-3 flex items-center gap-3 w-full bg-bg/60 rounded-xl p-3 transition-transform ${locked ? 'cursor-not-allowed' : 'active:scale-95'}`}
                         >
                           {award.type === 'team' ? (
                             <>
@@ -330,16 +346,21 @@ export default function PredictPage() {
                                 <p className="font-black text-base text-text">{pick.name}</p>
                                 <p className="text-[10px] text-muted">المجموعة {pick.group}</p>
                               </div>
-                              <span className="text-muted text-xs">تغيير</span>
+                              {!locked && <span className="text-muted text-xs">تغيير</span>}
                             </>
                           ) : (
                             <>
                               <span className="text-2xl">✏️</span>
                               <p className="font-bold text-text flex-1 text-right">{pick}</p>
-                              <span className="text-muted text-xs">تغيير</span>
+                              {!locked && <span className="text-muted text-xs">تغيير</span>}
                             </>
                           )}
                         </button>
+                      ) : locked ? (
+                        <div className="mt-3 flex items-center justify-center gap-2 w-full border-2 border-dashed border-live/30 rounded-xl py-3 text-sm text-live/60">
+                          <span>🔒</span>
+                          <span className="font-bold">مغلق</span>
+                        </div>
                       ) : (
                         <button
                           onClick={() => { setModal({ type: 'award', id: award.id }); setSearch('') }}
@@ -430,12 +451,16 @@ export default function PredictPage() {
               const grpPicks = groupPicks[grp] || {}
               const first    = grpPicks['1st']
               const second   = grpPicks['2nd']
+              const locked   = locks.lockedGroups.includes(grp)
 
               return (
-                <div key={grp} className="card overflow-hidden">
-                  <div className="px-4 py-3 border-b border-border bg-primary/5">
+                <div key={grp} className={`card overflow-hidden ${locked ? 'opacity-80' : ''}`}>
+                  <div className={`px-4 py-3 border-b border-border ${locked ? 'bg-live/5' : 'bg-primary/5'}`}>
                     <div className="flex items-center justify-between">
-                      <span className="font-black text-primary">المجموعة {grp}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`font-black ${locked ? 'text-live' : 'text-primary'}`}>المجموعة {grp}</span>
+                        {locked && <span className="text-[10px] font-bold text-live bg-live/10 px-2 py-0.5 rounded-full">🔒 مغلق</span>}
+                      </div>
                       <span className="text-[10px] text-muted">
                         {(first ? 1 : 0) + (second ? 1 : 0)}/2 محدد
                       </span>
@@ -451,9 +476,11 @@ export default function PredictPage() {
                         <span className="text-[9px] text-muted mr-auto">+{POINTS.GROUP_FIRST} نقطة</span>
                       </div>
                       <button
-                        onClick={() => setModal({ type: 'group', id: grp, slot: '1st' })}
-                        className={`w-full rounded-xl p-2.5 border-2 text-center transition-all active:scale-95 ${
-                          first ? 'border-gold/40 bg-gold/5' : 'border-dashed border-border'
+                        onClick={() => !locked && setModal({ type: 'group', id: grp, slot: '1st' })}
+                        className={`w-full rounded-xl p-2.5 border-2 text-center transition-all ${
+                          locked        ? 'border-live/20 bg-live/5 cursor-not-allowed'
+                          : first       ? 'border-gold/40 bg-gold/5 active:scale-95'
+                          :               'border-dashed border-border active:scale-95'
                         }`}
                       >
                         {first ? (
@@ -463,8 +490,8 @@ export default function PredictPage() {
                           </div>
                         ) : (
                           <div className="flex flex-col items-center gap-0.5 py-1">
-                            <span className="text-lg text-muted">+</span>
-                            <span className="text-[10px] text-muted">اختر</span>
+                            <span className={`text-lg ${locked ? 'text-live/40' : 'text-muted'}`}>{locked ? '🔒' : '+'}</span>
+                            <span className={`text-[10px] ${locked ? 'text-live/40' : 'text-muted'}`}>{locked ? 'مغلق' : 'اختر'}</span>
                           </div>
                         )}
                       </button>
@@ -478,9 +505,11 @@ export default function PredictPage() {
                         <span className="text-[9px] text-muted mr-auto">+{POINTS.GROUP_SECOND} نقطة</span>
                       </div>
                       <button
-                        onClick={() => setModal({ type: 'group', id: grp, slot: '2nd' })}
-                        className={`w-full rounded-xl p-2.5 border-2 text-center transition-all active:scale-95 ${
-                          second ? 'border-border bg-card' : 'border-dashed border-border'
+                        onClick={() => !locked && setModal({ type: 'group', id: grp, slot: '2nd' })}
+                        className={`w-full rounded-xl p-2.5 border-2 text-center transition-all ${
+                          locked        ? 'border-live/20 bg-live/5 cursor-not-allowed'
+                          : second      ? 'border-border bg-card active:scale-95'
+                          :               'border-dashed border-border active:scale-95'
                         }`}
                       >
                         {second ? (
@@ -490,8 +519,8 @@ export default function PredictPage() {
                           </div>
                         ) : (
                           <div className="flex flex-col items-center gap-0.5 py-1">
-                            <span className="text-lg text-muted">+</span>
-                            <span className="text-[10px] text-muted">اختر</span>
+                            <span className={`text-lg ${locked ? 'text-live/40' : 'text-muted'}`}>{locked ? '🔒' : '+'}</span>
+                            <span className={`text-[10px] ${locked ? 'text-live/40' : 'text-muted'}`}>{locked ? 'مغلق' : 'اختر'}</span>
                           </div>
                         )}
                       </button>

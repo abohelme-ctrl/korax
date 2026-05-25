@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import axios from 'axios'
+import { getSettings } from '@/app/api/settings/route'
 
 const STRAPI_URL   = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337'
 const STRAPI_TOKEN = process.env.STRAPI_API_TOKEN
@@ -50,6 +51,39 @@ export async function POST(req) {
   const userEmail = session.user.email
   const body = await req.json()
   const { matchId, homeScore, awayScore, homeTeam, awayTeam, matchDate } = body
+
+  // ─── التحقق من القفل ──────────────────────────────────────────────────────
+  try {
+    const settings = await getSettings()
+    const matchIdStr = String(matchId)
+
+    // جوائز مقفلة؟
+    if (matchIdStr.startsWith('award_') && settings.awardsLocked) {
+      return Response.json({ error: 'توقعات الجوائز مغلقة' }, { status: 403 })
+    }
+
+    // مجموعة مقفلة؟
+    if (matchIdStr.startsWith('group_')) {
+      const groupLetter = matchIdStr.split('_')[1] // group_A_1st → A
+      if (settings.lockedGroups.includes(groupLetter)) {
+        return Response.json({ error: `توقعات المجموعة ${groupLetter} مغلقة` }, { status: 403 })
+      }
+    }
+
+    // مباراة عادية: تحقق من الوقت (قفل تلقائي قبل ساعة)
+    if (!matchIdStr.startsWith('award_') && !matchIdStr.startsWith('group_') && matchIdStr !== '_korax_settings_') {
+      if (matchDate) {
+        const kickoff = new Date(matchDate).getTime()
+        const now     = Date.now()
+        const oneHour = 60 * 60 * 1000
+        if (now >= kickoff - oneHour) {
+          return Response.json({ error: 'انتهى وقت التوقع لهذه المباراة' }, { status: 403 })
+        }
+      }
+    }
+  } catch (lockErr) {
+    console.warn('[predictions] lock check failed (non-blocking):', lockErr.message)
+  }
 
   try {
     // ابحث عن المستخدم في Strapi أو أنشئه
