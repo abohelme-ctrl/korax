@@ -1,5 +1,7 @@
 import './globals.css'
 import Providers from '@/components/Providers'
+import { Analytics } from '@vercel/analytics/react'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 
 export const metadata = {
   title: 'KoraX - كأس العالم 2026 | توقعات ومباريات مونديال 2026',
@@ -58,6 +60,8 @@ export default function RootLayout({ children }) {
         <Providers>
           {children}
         </Providers>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )
