@@ -28,10 +28,28 @@ export default function AdminPage() {
   const [cronLoading, setCronLoading] = useState(false)
   const [cronResult,  setCronResult]  = useState(null)
 
+  // ─── Stats state ─────────────────────────────────────────────────────────────
+  const [stats,        setStats]        = useState(null)
+  const [statsLoading, setStatsLoading] = useState(false)
+
   useEffect(() => {
     if (!authed) return
     fetch('/api/settings').then(r => r.json()).then(s => setLockSettings(s)).catch(() => {})
+    // تحميل الإحصائيات عند الدخول
+    loadStats()
   }, [authed])
+
+  async function loadStats() {
+    setStatsLoading(true)
+    try {
+      const res  = await fetch(`/api/admin/stats?secret=${encodeURIComponent(secret)}`, {
+        headers: { 'x-admin-secret': secret },
+      })
+      const data = await res.json()
+      if (data.ok) setStats(data)
+    } catch {}
+    finally { setStatsLoading(false) }
+  }
 
   // ─── Match fields ───────────────────────────────────────────────────────────
   const [matchId, setMatchId]       = useState('')
@@ -140,13 +158,14 @@ export default function AdminPage() {
       </div>
 
       {/* Tabs */}
-      <div className="grid grid-cols-2 gap-2 mb-6">
+      <div className="grid grid-cols-3 gap-2 mb-6">
         {[
-          { id: 'auto',  label: '🤖 تلقائي'  },
-          { id: 'match', label: '⚽ مباريات' },
-          { id: 'award', label: '🏆 جوائز'   },
-          { id: 'group', label: '📊 مجموعات' },
-          { id: 'lock',  label: '🔒 القفل'   },
+          { id: 'stats', label: '📈 إحصائيات' },
+          { id: 'auto',  label: '🤖 تلقائي'   },
+          { id: 'match', label: '⚽ مباريات'  },
+          { id: 'award', label: '🏆 جوائز'    },
+          { id: 'group', label: '📊 مجموعات'  },
+          { id: 'lock',  label: '🔒 القفل'    },
         ].map(t => (
           <button
             key={t.id}
@@ -304,6 +323,160 @@ export default function AdminPage() {
           >
             {loading ? '⏳ جاري المعالجة...' : '✅ احسب النقاط'}
           </button>
+        </div>
+      )}
+
+      {/* ══ الإحصائيات ══ */}
+      {tab === 'stats' && (
+        <div className="space-y-4">
+
+          {/* زر تحديث */}
+          <button
+            onClick={loadStats}
+            disabled={statsLoading}
+            className="w-full py-3 rounded-xl bg-card border border-border text-sm font-bold text-muted active:scale-95 transition-transform flex items-center justify-center gap-2"
+          >
+            {statsLoading
+              ? <><span className="animate-spin inline-block">⚙️</span><span>جاري التحميل...</span></>
+              : <><span>🔄</span><span>تحديث الإحصائيات</span></>
+            }
+          </button>
+
+          {statsLoading && !stats && (
+            <div className="flex justify-center py-10">
+              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+
+          {stats && (
+            <>
+              {/* ── المستخدمون ── */}
+              <div className="card p-4 space-y-3">
+                <p className="font-black text-text">👤 المستخدمون</p>
+
+                {/* أرقام كبيرة */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-primary/10 rounded-xl p-3 text-center">
+                    <p className="text-3xl font-black text-primary">{stats.users.total}</p>
+                    <p className="text-[10px] text-muted mt-0.5">إجمالي المسجّلين</p>
+                  </div>
+                  <div className="bg-green-500/10 rounded-xl p-3 text-center">
+                    <p className="text-3xl font-black text-green-400">{stats.users.newToday}</p>
+                    <p className="text-[10px] text-muted mt-0.5">انضموا اليوم</p>
+                  </div>
+                </div>
+
+                {/* تفاصيل */}
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between py-2 border-b border-border">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🔵</span>
+                      <span className="text-sm text-text">تسجيل بـ Google</span>
+                    </div>
+                    <span className="font-black text-primary">{stats.users.google}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-border">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">📧</span>
+                      <span className="text-sm text-text">تسجيل بـ Email</span>
+                    </div>
+                    <span className="font-black text-text">{stats.users.email}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">📅</span>
+                      <span className="text-sm text-text">آخر 7 أيام</span>
+                    </div>
+                    <span className="font-black text-gold">{stats.users.newThisWeek}</span>
+                  </div>
+                </div>
+
+                {/* شريط Google vs Email */}
+                {stats.users.total > 0 && (
+                  <div>
+                    <div className="flex justify-between text-[10px] text-muted mb-1">
+                      <span>Google {Math.round(stats.users.google / stats.users.total * 100)}%</span>
+                      <span>Email {Math.round(stats.users.email / stats.users.total * 100)}%</span>
+                    </div>
+                    <div className="h-2 bg-card rounded-full overflow-hidden flex">
+                      <div
+                        className="h-full bg-primary transition-all"
+                        style={{ width: `${Math.round(stats.users.google / stats.users.total * 100)}%` }}
+                      />
+                      <div className="h-full bg-muted flex-1" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── التوقعات ── */}
+              <div className="card p-4 space-y-3">
+                <p className="font-black text-text">⚽ التوقعات</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-primary/10 rounded-xl p-3 text-center">
+                    <p className="text-3xl font-black text-primary">{stats.predictions.total}</p>
+                    <p className="text-[10px] text-muted mt-0.5">إجمالي التوقعات</p>
+                  </div>
+                  <div className="bg-gold/10 rounded-xl p-3 text-center">
+                    <p className="text-3xl font-black text-gold">{stats.predictions.today}</p>
+                    <p className="text-[10px] text-muted mt-0.5">توقعات اليوم</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1 bg-green-500/10 rounded-xl p-2 text-center">
+                    <p className="text-lg font-black text-green-400">{stats.predictions.resolved}</p>
+                    <p className="text-[9px] text-muted">محتسبة</p>
+                  </div>
+                  <div className="flex-1 bg-card rounded-xl p-2 text-center">
+                    <p className="text-lg font-black text-muted">{stats.predictions.pending}</p>
+                    <p className="text-[9px] text-muted">معلّقة</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── المجموعات ── */}
+              <div className="card p-4">
+                <div className="flex items-center justify-between">
+                  <p className="font-black text-text">👥 المجموعات</p>
+                  <div className="bg-primary/10 rounded-xl px-4 py-2">
+                    <p className="text-xl font-black text-primary">{stats.groups.total}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── المسجّلون اليوم ── */}
+              {stats.users.list?.length > 0 && (
+                <div className="card p-4 space-y-2">
+                  <p className="font-black text-text">🆕 انضموا اليوم</p>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {stats.users.list.map((u, i) => (
+                      <div key={i} className="flex items-center gap-3 py-1.5 border-b border-border last:border-0">
+                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-black text-primary">
+                          {u.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-text truncate">{u.name}</p>
+                          <p className="text-[10px] text-muted truncate">{u.email}</p>
+                        </div>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                          u.provider === 'google'
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-card text-muted border border-border'
+                        }`}>
+                          {u.provider === 'google' ? '🔵 Google' : '📧 Email'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* وقت آخر تحديث */}
+              <p className="text-center text-[10px] text-muted pb-2">
+                آخر تحديث: {new Date(stats.timestamp).toLocaleTimeString('ar')}
+              </p>
+            </>
+          )}
         </div>
       )}
 
