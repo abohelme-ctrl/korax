@@ -9,37 +9,46 @@ import Link from 'next/link'
 export default function JoinGroupPage() {
   const { code }   = useParams()
   const router     = useRouter()
-  const { isLoggedIn, strapiToken } = useAuth()
+  const { isLoggedIn, isLoading, strapiToken } = useAuth()
 
-  const [status, setStatus] = useState('loading') // loading | joining | success | error | login
+  const [status,    setStatus]    = useState('loading')
   const [groupName, setGroupName] = useState('')
-  const [error, setError] = useState('')
+  const [error,     setError]     = useState('')
+  const [done,      setDone]      = useState(false) // منع التكرار
 
   useEffect(() => {
-    if (!code) return
+    if (isLoading || !code || done) return
 
-    // لو مش مسجّل دخول — اعرض شاشة تسجيل الدخول
+    // غير مسجّل → شاشة الدخول
     if (!isLoggedIn || !strapiToken) {
       setStatus('login')
       return
     }
 
-    // مسجّل دخول — انضم تلقائياً
+    // مسجّل دخول → انضم تلقائياً (مرة واحدة فقط)
+    setDone(true)
     setStatus('joining')
     setUserToken(strapiToken)
 
     joinGroup(code.toUpperCase())
       .then(group => {
-        setGroupName(group?.name || 'المجموعة')
+        const name = group?.name || group?.data?.attributes?.name || ''
+        setGroupName(name)
         setStatus('success')
-        // انتقل للترتيب بعد ثانيتين
-        setTimeout(() => router.push('/rankings'), 2000)
+        setTimeout(() => router.replace('/rankings?tab=friends'), 2000)
       })
       .catch(err => {
-        setError(err?.message || 'الكود غير صحيح أو المجموعة غير موجودة')
-        setStatus('error')
+        const msg = err?.response?.data?.error?.message || err?.message || ''
+        // إذا كان موجوداً بالفعل → نجاح
+        if (msg.includes('already') || msg.includes('موجود')) {
+          setStatus('success')
+          setTimeout(() => router.replace('/rankings?tab=friends'), 2000)
+        } else {
+          setError('الكود غير صحيح أو المجموعة غير موجودة')
+          setStatus('error')
+        }
       })
-  }, [code, isLoggedIn, strapiToken])
+  }, [isLoading, isLoggedIn, strapiToken, code, done])
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-bg">

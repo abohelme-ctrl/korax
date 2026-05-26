@@ -392,15 +392,25 @@ function GroupLeaderboard({ group, onShare, copied, myUserId, onDelete, onRemove
           </button>
         </div>
 
-        {/* Code pill */}
-        <div className="flex items-center gap-2 bg-bg rounded-xl px-3 py-2">
-          <span className="text-xs text-muted">كود الانضمام:</span>
-          <span className="font-black text-primary tracking-widest text-sm flex-1">{group.code}</span>
+        {/* Code + Link */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 bg-bg rounded-xl px-3 py-2">
+            <span className="text-xs text-muted">كود الانضمام:</span>
+            <span className="font-black text-primary tracking-widest text-sm flex-1">{group.code}</span>
+            <button
+              onClick={() => navigator.clipboard.writeText(group.code)}
+              className="text-[10px] text-muted bg-card border border-border px-2 py-1 rounded-lg active:scale-95 transition-transform"
+            >
+              نسخ
+            </button>
+          </div>
+          {/* رابط الانضمام المباشر */}
           <button
-            onClick={() => { navigator.clipboard.writeText(group.code) }}
-            className="text-[10px] text-muted bg-card border border-border px-2 py-1 rounded-lg"
+            onClick={onShare}
+            className="w-full flex items-center justify-center gap-2 bg-primary text-white rounded-xl py-2.5 text-sm font-black active:scale-95 transition-transform"
           >
-            نسخ
+            <span>📤</span>
+            <span>{copied ? '✅ تم النسخ!' : 'أرسل رابط الانضمام'}</span>
           </button>
         </div>
       </div>

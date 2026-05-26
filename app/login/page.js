@@ -2,6 +2,7 @@
 
 import { signIn } from 'next-auth/react'
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 export default function LoginPage() {
   const [email, setEmail]       = useState('')
@@ -9,15 +10,18 @@ export default function LoginPage() {
   const [loading, setLoading]   = useState(null)
   const [mode, setMode]         = useState('login') // login | register
 
+  const searchParams  = useSearchParams()
+  const redirectTo    = searchParams.get('redirect') || '/'
+
   async function handleSocial(provider) {
     setLoading(provider)
-    await signIn(provider, { callbackUrl: '/' })
+    await signIn(provider, { callbackUrl: redirectTo })
   }
 
   async function handleCredentials(e) {
     e.preventDefault()
     setLoading('email')
-    await signIn('credentials', { email, password, callbackUrl: '/' })
+    await signIn('credentials', { email, password, callbackUrl: redirectTo })
     setLoading(null)
   }
 
