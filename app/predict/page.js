@@ -6,6 +6,7 @@ import Header from '@/components/layout/Header'
 import BottomNav from '@/components/layout/BottomNav'
 import { useAuth } from '@/lib/useAuth'
 import { POINTS, AWARD_POINTS_MAP } from '@/lib/scoring'
+import { getLeaderboard } from '@/lib/strapi'
 
 // ─── بيانات المجموعات ─────────────────────────────────────────────────────────
 const GROUPS = {
@@ -111,11 +112,32 @@ export default function PredictPage() {
   const [showCard, setShowCard]     = useState(false)
   const [saving, setSaving]         = useState(false)
   const [locks, setLocks]           = useState({ awardsLocked: false, lockedGroups: [] })
+  const [myPoints, setMyPoints]     = useState(null)  // null = loading
+  const [myRank,   setMyRank]       = useState(null)
 
   // ─── تحميل إعدادات القفل ────────────────────────────────────────────────────
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(s => setLocks(s)).catch(() => {})
   }, [])
+
+  // ─── تحميل نقاطي ورتبتي ─────────────────────────────────────────────────────
+  const { strapiId } = useAuth()
+  useEffect(() => {
+    if (!isLoggedIn) return
+    getLeaderboard()
+      .then(board => {
+        if (!Array.isArray(board)) return
+        const idx = board.findIndex(e => e.userId === strapiId)
+        if (idx !== -1) {
+          setMyPoints(board[idx].points ?? 0)
+          setMyRank(idx + 1)
+        } else {
+          setMyPoints(0)
+          setMyRank(null)
+        }
+      })
+      .catch(() => {})
+  }, [isLoggedIn, strapiId])
 
   // ─── تحميل من localStorage ──────────────────────────────────────────────────
   useEffect(() => {
@@ -262,6 +284,55 @@ export default function PredictPage() {
       <Header title="توقعاتي الكبرى" back />
 
       <div className="page-content pb-24">
+
+        {/* ─── بطاقة النقاط والرتبة ─── */}
+        {isLoggedIn && (
+          <div className="px-4 pt-4">
+            <Link href="/rankings" className="flex items-center gap-3 card p-4 border-primary/20 bg-primary/5 active:scale-95 transition-transform mb-1">
+              <div className="flex-1 flex items-center gap-4">
+                <div className="text-center">
+                  <p className="text-2xl font-black text-primary">
+                    {myPoints === null ? '...' : myPoints}
+                  </p>
+                  <p className="text-[10px] text-muted">نقطة</p>
+                </div>
+                <div className="w-px h-8 bg-border" />
+                <div className="text-center">
+                  <p className="text-2xl font-black text-gold">
+                    {myRank === null ? (myPoints === 0 ? '-' : '...') : `#${myRank}`}
+                  </p>
+                  <p className="text-[10px] text-muted">رتبتي</p>
+                </div>
+              </div>
+              <div className="flex flex-col items-center gap-0.5">
+                <span className="text-2xl">🏆</span>
+                <span className="text-[10px] font-bold text-primary">الترتيب</span>
+              </div>
+            </Link>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <Link href="/rankings" className="card p-3 flex items-center gap-2 active:scale-95 transition-transform">
+                <span className="text-lg">🌍</span>
+                <span className="text-xs font-bold text-text">الترتيب العام</span>
+              </Link>
+              <Link href="/rankings?tab=friends" className="card p-3 flex items-center gap-2 active:scale-95 transition-transform">
+                <span className="text-lg">👥</span>
+                <span className="text-xs font-bold text-text">مجموعاتي</span>
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {!isLoggedIn && (
+          <div className="px-4 pt-4">
+            <Link href="/login" className="card p-4 border-primary/20 bg-primary/5 flex items-center gap-3 active:scale-95 transition-transform">
+              <span className="text-2xl">🔐</span>
+              <div>
+                <p className="font-bold text-text text-sm">سجّل دخولك</p>
+                <p className="text-xs text-muted">لحفظ توقعاتك وعرض رتبتك</p>
+              </div>
+            </Link>
+          </div>
+        )}
 
         {/* ─── Tabs ─── */}
         <div className="flex gap-2 px-4 pt-4 pb-2">

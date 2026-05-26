@@ -5,8 +5,8 @@ import { usePathname } from 'next/navigation'
 
 const NAV_ITEMS = [
   { href: '/',          icon: HomeIcon,      label: 'الرئيسية'  },
-  { href: '/groups',    icon: GroupsIcon,    label: 'المجموعات' },
   { href: '/predict',   icon: PredictIcon,   label: 'توقعاتي'   },
+  { href: '/rankings',  icon: TrophyIcon,    label: 'الترتيب'   },
   { href: '/simulator', icon: SimulatorIcon, label: 'المحاكي'   },
   { href: '/news',      icon: NewsIcon,      label: 'الأخبار'   },
 ]

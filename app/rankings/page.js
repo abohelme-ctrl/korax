@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Header from '@/components/layout/Header'
 import BottomNav from '@/components/layout/BottomNav'
 import { getInitials, generateGroupCode } from '@/lib/utils'
@@ -25,8 +26,16 @@ function saveLocalGroups(groups) {
 
 export default function RankingsPage() {
   const { isLoggedIn, strapiId, strapiToken, user } = useAuth()
+  const searchParams = useSearchParams()
 
-  const [view, setView]               = useState('global')
+  // دعم ?tab=friends من روابط توقعاتي
+  const [view, setView] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search).get('tab')
+      if (p === 'friends') return 'friends'
+    }
+    return 'global'
+  })
   const [leaderboard, setLeaderboard] = useState(null) // null = loading
   const [myGroups, setMyGroups]       = useState([])
   const [activeGroup, setActiveGroup] = useState(null)
