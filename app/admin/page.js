@@ -15,7 +15,7 @@ const GROUPS = ['A','B','C','D','E','F','G','H','I','J','K','L']
 export default function AdminPage() {
   const [secret, setSecret]   = useState('')
   const [authed, setAuthed]   = useState(false)
-  const [tab, setTab]         = useState('match')
+  const [tab, setTab]         = useState('stats')
   const [result, setResult]   = useState(null)
   const [loading, setLoading] = useState(false)
 
