@@ -6,7 +6,14 @@ import Header from '@/components/layout/Header'
 import BottomNav from '@/components/layout/BottomNav'
 import { useAuth } from '@/lib/useAuth'
 import { POINTS, AWARD_POINTS_MAP } from '@/lib/scoring'
-import { getLeaderboard } from '@/lib/strapi'
+import { getLeaderboard, getMyGroups, createGroup, joinGroup, setUserToken, deleteGroup, removeMemberFromGroup } from '@/lib/strapi'
+import { getInitials, generateGroupCode } from '@/lib/utils'
+
+const LS_FRIEND_GROUPS_KEY = 'korax_ranking_groups'
+function loadLocalGroups() {
+  try { return JSON.parse(localStorage.getItem(LS_FRIEND_GROUPS_KEY) || '[]') } catch { return [] }
+}
+function saveLocalGroups(g) { localStorage.setItem(LS_FRIEND_GROUPS_KEY, JSON.stringify(g)) }
 
 // ─── بيانات المجموعات ─────────────────────────────────────────────────────────
 const GROUPS = {
@@ -106,27 +113,41 @@ export default function PredictPage() {
   const [tab, setTab]               = useState('awards')
   const [awardPicks, setAwardPicks] = useState({})
   const [groupPicks, setGroupPicks] = useState({})
-  const [modal, setModal]           = useState(null)   // { type: 'award'|'group', id, slot? }
+  const [modal, setModal]           = useState(null)
   const [search, setSearch]         = useState('')
   const [toast, setToast]           = useState('')
   const [showCard, setShowCard]     = useState(false)
   const [saving, setSaving]         = useState(false)
   const [locks, setLocks]           = useState({ awardsLocked: false, lockedGroups: [] })
-  const [myPoints, setMyPoints]     = useState(null)  // null = loading
+  const [myPoints, setMyPoints]     = useState(null)
   const [myRank,   setMyRank]       = useState(null)
+  const [leaderboard, setLeaderboard] = useState(null)
+
+  // ─── مجموعات الأصدقاء ────────────────────────────────────────────────────────
+  const [friendGroups,  setFriendGroups]  = useState([])
+  const [activeGroup,   setActiveGroup]   = useState(null)
+  const [showCreate,    setShowCreate]    = useState(false)
+  const [showJoin,      setShowJoin]      = useState(false)
+  const [newGroupName,  setNewGroupName]  = useState('')
+  const [joinCode,      setJoinCode]      = useState('')
+  const [creating,      setCreating]      = useState(false)
+  const [joining,       setJoining]       = useState(false)
+  const [joinError,     setJoinError]     = useState('')
+  const [copied,        setCopied]        = useState(false)
 
   // ─── تحميل إعدادات القفل ────────────────────────────────────────────────────
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(s => setLocks(s)).catch(() => {})
   }, [])
 
-  // ─── تحميل نقاطي ورتبتي ─────────────────────────────────────────────────────
+  // ─── تحميل نقاطي ورتبتي + الترتيب العام ─────────────────────────────────────
   const { strapiId } = useAuth()
   useEffect(() => {
     if (!isLoggedIn) return
     getLeaderboard()
       .then(board => {
         if (!Array.isArray(board)) return
+        setLeaderboard(board)
         const idx = board.findIndex(e => e.userId === strapiId)
         if (idx !== -1) {
           setMyPoints(board[idx].points ?? 0)
@@ -138,6 +159,87 @@ export default function PredictPage() {
       })
       .catch(() => {})
   }, [isLoggedIn, strapiId])
+
+  // ─── تحميل مجموعات الأصدقاء ──────────────────────────────────────────────────
+  useEffect(() => {
+    const local = loadLocalGroups()
+    if (local.length > 0) { setFriendGroups(local); setActiveGroup(local[0].id) }
+    if (!isLoggedIn || !strapiToken) return
+    setUserToken(strapiToken)
+    getMyGroups()
+      .then(data => {
+        const groups = Array.isArray(data) && data.length > 0 ? data : local
+        setFriendGroups(groups)
+        if (groups.length > 0) setActiveGroup(prev => prev || groups[0].id)
+        if (Array.isArray(data) && data.length > 0) saveLocalGroups(data)
+      })
+      .catch(() => {})
+  }, [isLoggedIn, strapiToken])
+
+  async function handleCreateGroup() {
+    if (!newGroupName.trim()) return
+    setCreating(true)
+    try {
+      const group = await createGroup(newGroupName.trim())
+      const updated = [...friendGroups, group]
+      setFriendGroups(updated); saveLocalGroups(updated)
+      setActiveGroup(group.id)
+      setNewGroupName(''); setShowCreate(false)
+    } catch {
+      const code  = generateGroupCode()
+      const group = { id: `g_${Date.now()}`, name: newGroupName.trim(), code, members: [] }
+      const updated = [...friendGroups, group]
+      setFriendGroups(updated); saveLocalGroups(updated)
+      setActiveGroup(group.id)
+      setNewGroupName(''); setShowCreate(false)
+    } finally { setCreating(false) }
+  }
+
+  async function handleJoinGroup() {
+    if (!joinCode.trim()) return
+    setJoining(true); setJoinError('')
+    try {
+      const group = await joinGroup(joinCode.trim().toUpperCase())
+      setFriendGroups(prev => {
+        const exists = prev.find(g => g.id === group.id)
+        const updated = exists ? prev : [...prev, group]
+        saveLocalGroups(updated); return updated
+      })
+      setActiveGroup(group.id)
+      setJoinCode(''); setShowJoin(false)
+    } catch { setJoinError('الكود غير صحيح أو المجموعة غير موجودة') }
+    finally { setJoining(false) }
+  }
+
+  async function handleShareGroup(group) {
+    const url  = `${window.location.origin}/join/${group.code}`
+    const text = `انضم لمجموعتي "${group.name}" في KoraX!\nالكود: ${group.code}\n${url}`
+    if (navigator.share) {
+      await navigator.share({ title: 'KoraX', text }).catch(() => {})
+    } else {
+      navigator.clipboard.writeText(text)
+      setCopied(true); setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  async function handleDeleteGroup(groupId) {
+    try {
+      await deleteGroup(groupId)
+      const updated = friendGroups.filter(g => g.id !== groupId)
+      setFriendGroups(updated); saveLocalGroups(updated)
+      setActiveGroup(updated[0]?.id || null)
+    } catch { showToast('تعذّر حذف المجموعة') }
+  }
+
+  async function handleRemoveMember(groupId, userId) {
+    try {
+      await removeMemberFromGroup(groupId, userId)
+      setFriendGroups(prev => prev.map(g =>
+        g.id !== groupId ? g
+        : { ...g, members: (g.members || []).filter(m => (m.userId || m.id) !== userId) }
+      ))
+    } catch { showToast('تعذّر طرد العضو') }
+  }
 
   // ─── تحميل من localStorage ──────────────────────────────────────────────────
   useEffect(() => {
@@ -288,37 +390,33 @@ export default function PredictPage() {
         {/* ─── بطاقة النقاط والرتبة ─── */}
         {isLoggedIn && (
           <div className="px-4 pt-4">
-            <Link href="/rankings" className="flex items-center gap-3 card p-4 border-primary/20 bg-primary/5 active:scale-95 transition-transform mb-1">
+            <button
+              onClick={() => setTab('mygroups')}
+              className="w-full flex items-center gap-3 card p-4 border-primary/20 bg-primary/5 active:scale-95 transition-transform"
+            >
               <div className="flex-1 flex items-center gap-4">
                 <div className="text-center">
-                  <p className="text-2xl font-black text-primary">
-                    {myPoints === null ? '...' : myPoints}
-                  </p>
-                  <p className="text-[10px] text-muted">نقطة</p>
+                  <p className="text-2xl font-black text-primary">{myPoints === null ? '...' : myPoints}</p>
+                  <p className="text-[10px] text-muted">نقطتي</p>
                 </div>
                 <div className="w-px h-8 bg-border" />
                 <div className="text-center">
                   <p className="text-2xl font-black text-gold">
                     {myRank === null ? (myPoints === 0 ? '-' : '...') : `#${myRank}`}
                   </p>
-                  <p className="text-[10px] text-muted">رتبتي</p>
+                  <p className="text-[10px] text-muted">ترتيبي</p>
+                </div>
+                <div className="w-px h-8 bg-border" />
+                <div className="text-center">
+                  <p className="text-2xl font-black text-green-400">{friendGroups.length}</p>
+                  <p className="text-[10px] text-muted">مجموعة</p>
                 </div>
               </div>
               <div className="flex flex-col items-center gap-0.5">
-                <span className="text-2xl">🏆</span>
-                <span className="text-[10px] font-bold text-primary">الترتيب</span>
+                <span className="text-2xl">👥</span>
+                <span className="text-[10px] font-bold text-primary">مجموعاتي</span>
               </div>
-            </Link>
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              <Link href="/rankings" className="card p-3 flex items-center gap-2 active:scale-95 transition-transform">
-                <span className="text-lg">🌍</span>
-                <span className="text-xs font-bold text-text">الترتيب العام</span>
-              </Link>
-              <Link href="/rankings?tab=friends" className="card p-3 flex items-center gap-2 active:scale-95 transition-transform">
-                <span className="text-lg">👥</span>
-                <span className="text-xs font-bold text-text">مجموعاتي</span>
-              </Link>
-            </div>
+            </button>
           </div>
         )}
 
@@ -337,13 +435,14 @@ export default function PredictPage() {
         {/* ─── Tabs ─── */}
         <div className="flex gap-2 px-4 pt-4 pb-2">
           {[
-            { id: 'awards', label: '🏆 الجوائز',     done: awardDone, total: AWARDS.length },
-            { id: 'groups', label: '📊 المجموعات',   done: groupDone, total: groupTotal    },
+            { id: 'awards',   label: '🏆 الجوائز',    sub: `${awardDone}/${AWARDS.length}` },
+            { id: 'groups',   label: '📊 المجموعات',  sub: `${groupDone}/${groupTotal}` },
+            { id: 'mygroups', label: '👥 مجموعاتي',   sub: friendGroups.length > 0 ? `${friendGroups.length} مجموعة` : 'جديد' },
           ].map(t => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all flex flex-col items-center gap-0.5 ${
+              className={`flex-1 py-3 rounded-2xl font-bold text-xs transition-all flex flex-col items-center gap-0.5 ${
                 tab === t.id
                   ? 'bg-primary text-white shadow-md shadow-primary/30'
                   : 'bg-card border border-border text-muted'
@@ -351,7 +450,7 @@ export default function PredictPage() {
             >
               <span>{t.label}</span>
               <span className={`text-[10px] font-black ${tab === t.id ? 'text-white/80' : 'text-muted'}`}>
-                {t.done}/{t.total}
+                {t.sub}
               </span>
             </button>
           ))}
@@ -616,6 +715,253 @@ export default function PredictPage() {
           </div>
         )}
 
+        {/* ══════════════════════════════════════════════════════════════════════
+            التبويب الثالث: مجموعاتي + الترتيب
+        ════════════════════════════════════════════════════════════════════════ */}
+        {tab === 'mygroups' && (
+          <div className="px-4 space-y-4 pb-4">
+
+            {!isLoggedIn ? (
+              <Link href="/login" className="card p-5 border-primary/20 bg-primary/5 flex items-center gap-3 active:scale-95 transition-transform block">
+                <span className="text-3xl">🔐</span>
+                <div>
+                  <p className="font-bold text-text">سجّل دخولك</p>
+                  <p className="text-xs text-muted">لإنشاء مجموعة ومقارنة ترتيبك مع أصدقائك</p>
+                </div>
+              </Link>
+            ) : (
+              <>
+                {/* ── بطاقة ترتيبي العام ── */}
+                <div className="card p-4 border-primary/20 bg-primary/5">
+                  <p className="text-xs text-muted font-bold mb-3">🌍 ترتيبي العام</p>
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center font-black text-primary text-lg">
+                      #{myRank ?? '–'}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-2xl font-black text-text">{myPoints ?? 0} <span className="text-sm font-bold text-muted">نقطة</span></p>
+                      <p className="text-xs text-muted">
+                        {leaderboard ? `من ${leaderboard.length} مشترك` : '...'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── أزرار إنشاء / انضمام ── */}
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setShowCreate(true)}
+                    className="card p-4 flex flex-col items-center gap-2 active:scale-95 transition-transform border-primary/20 hover:border-primary/40"
+                  >
+                    <span className="text-3xl">➕</span>
+                    <span className="text-sm font-black text-primary">إنشاء مجموعة</span>
+                    <span className="text-[10px] text-muted text-center">سمّها وادعُ أصدقاءك</span>
+                  </button>
+                  <button
+                    onClick={() => setShowJoin(true)}
+                    className="card p-4 flex flex-col items-center gap-2 active:scale-95 transition-transform"
+                  >
+                    <span className="text-3xl">🔗</span>
+                    <span className="text-sm font-black text-muted-light">انضمام بكود</span>
+                    <span className="text-[10px] text-muted text-center">أدخل كود المجموعة</span>
+                  </button>
+                </div>
+
+                {/* ── مجموعاتي ── */}
+                {friendGroups.length > 0 && (
+                  <div>
+                    <p className="text-xs font-black text-muted mb-2">مجموعاتي ({friendGroups.length})</p>
+
+                    {/* تبويبات المجموعات */}
+                    {friendGroups.length > 1 && (
+                      <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide">
+                        {friendGroups.map(g => (
+                          <button
+                            key={g.id}
+                            onClick={() => setActiveGroup(g.id)}
+                            className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                              activeGroup === g.id
+                                ? 'bg-primary text-white'
+                                : 'bg-card border border-border text-muted'
+                            }`}
+                          >
+                            {g.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* المجموعة النشطة */}
+                    {(() => {
+                      const group = friendGroups.find(g => g.id === activeGroup) || friendGroups[0]
+                      if (!group) return null
+                      const adminId = group.admin?.id || group.adminId || null
+                      const isAdmin = adminId === strapiId
+                      const members = (group.members || group.leaderboard || []).map((m, i) => ({
+                        userId:  m.userId || m.id,
+                        name:    m.username || m.name || `عضو ${i + 1}`,
+                        points:  m.points ?? 0,
+                        correct: m.count ?? m.correct ?? 0,
+                        isMe:    m.userId === strapiId || m.id === strapiId || m.isMe,
+                        isAdmin: (m.userId || m.id) === adminId,
+                      }))
+                      const sorted = [...members].sort((a, b) => b.points - a.points)
+                      const myGroupRank = sorted.findIndex(m => m.isMe) + 1
+
+                      return (
+                        <div className="card overflow-hidden">
+                          {/* رأس المجموعة */}
+                          <div className="px-4 py-3 border-b border-border bg-primary/5">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-black text-text">{group.name}</p>
+                                  {isAdmin && <span className="text-[10px] bg-gold/20 text-gold px-2 py-0.5 rounded-full font-bold">👑 مدير</span>}
+                                </div>
+                                <p className="text-xs text-muted">{members.length} أعضاء</p>
+                              </div>
+                              <button
+                                onClick={() => handleShareGroup(group)}
+                                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary text-white text-xs font-bold active:scale-95 transition-transform"
+                              >
+                                {copied ? '✓ تم' : '📤 دعوة'}
+                              </button>
+                            </div>
+
+                            {/* كود الانضمام */}
+                            <div className="flex items-center gap-2 bg-bg rounded-xl px-3 py-2 mt-2">
+                              <span className="text-xs text-muted">كود:</span>
+                              <span className="font-black text-primary tracking-widest text-sm flex-1">{group.code}</span>
+                              <button
+                                onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/join/${group.code}`); showToast('تم نسخ الرابط ✓') }}
+                                className="text-[10px] text-muted bg-card border border-border px-2 py-1 rounded-lg active:scale-95 transition-transform"
+                              >
+                                نسخ الرابط
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* ترتيبي في المجموعة */}
+                          {myGroupRank > 0 && (
+                            <div className="px-4 py-2.5 bg-primary/5 border-b border-border flex items-center justify-between">
+                              <span className="text-xs text-muted font-bold">ترتيبك في المجموعة</span>
+                              <span className="text-sm font-black text-primary">
+                                {myGroupRank <= 3 ? ['🥇','🥈','🥉'][myGroupRank - 1] : ''} #{myGroupRank} من {sorted.length}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* قائمة الأعضاء */}
+                          {sorted.map((m, i) => (
+                            <div key={i} className={`flex items-center gap-3 px-4 py-3 border-b border-border last:border-0 ${m.isMe ? 'bg-primary/5' : ''}`}>
+                              <span className="text-base w-7 text-center font-black text-muted">
+                                {i < 3 ? ['🥇','🥈','🥉'][i] : `#${i + 1}`}
+                              </span>
+                              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${m.isMe ? 'bg-primary text-white' : 'bg-border text-muted-light'}`}>
+                                {getInitials(m.name)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1">
+                                  <p className={`text-sm font-bold truncate ${m.isMe ? 'text-primary' : 'text-text'}`}>{m.name}</p>
+                                  {m.isAdmin && <span className="text-xs">👑</span>}
+                                  {m.isMe && <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-bold">أنا</span>}
+                                </div>
+                                <p className="text-[10px] text-muted">{m.correct} توقع صحيح</p>
+                              </div>
+                              <p className="text-lg font-black text-text">{m.points} <span className="text-[10px] text-muted font-normal">نقطة</span></p>
+                            </div>
+                          ))}
+
+                          {sorted.length === 0 && (
+                            <div className="px-4 py-8 text-center text-muted">
+                              <p className="text-3xl mb-2">👥</p>
+                              <p className="text-sm">لا أعضاء بعد — أرسل الرابط لأصدقائك</p>
+                            </div>
+                          )}
+
+                          {/* حذف المجموعة للمدير */}
+                          {isAdmin && (
+                            <div className="px-4 py-3 border-t border-border">
+                              <button
+                                onClick={() => window.confirm('هل تريد حذف المجموعة؟') && handleDeleteGroup(group.id)}
+                                className="w-full py-2.5 rounded-xl border border-live/30 text-live text-xs font-bold active:scale-95 transition-transform"
+                              >
+                                🗑️ حذف المجموعة
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
+
+                {friendGroups.length === 0 && (
+                  <div className="card p-8 text-center text-muted">
+                    <p className="text-5xl mb-3">👥</p>
+                    <p className="font-bold text-text mb-1">لا توجد مجموعات بعد</p>
+                    <p className="text-xs">أنشئ مجموعة وشارك الرابط مع أصدقائك</p>
+                  </div>
+                )}
+
+                {/* ── الترتيب العام (أفضل 10) ── */}
+                {leaderboard && leaderboard.length > 0 && (
+                  <div>
+                    <p className="text-xs font-black text-muted mb-2">🌍 الترتيب العام — أفضل 10</p>
+                    <div className="card overflow-hidden">
+                      {leaderboard.slice(0, 10).map((e, i) => {
+                        const isMe = e.userId === strapiId
+                        return (
+                          <div key={i} className={`flex items-center gap-3 px-4 py-3 border-b border-border last:border-0 ${isMe ? 'bg-primary/5' : ''}`}>
+                            <span className="text-base w-7 text-center font-black text-muted">
+                              {i < 3 ? ['🥇','🥈','🥉'][i] : `#${i + 1}`}
+                            </span>
+                            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${isMe ? 'bg-primary text-white' : 'bg-border text-muted-light'}`}>
+                              {getInitials(e.username || e.name || '?')}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1">
+                                <p className={`text-sm font-bold truncate ${isMe ? 'text-primary' : 'text-text'}`}>
+                                  {e.username || e.name || `مستخدم`}
+                                </p>
+                                {isMe && <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-bold">أنا</span>}
+                              </div>
+                              <p className="text-[10px] text-muted">{e.count ?? 0} صحيح</p>
+                            </div>
+                            <p className="text-lg font-black text-text">{e.points ?? 0}</p>
+                          </div>
+                        )
+                      })}
+
+                      {/* ترتيبي إذا لم أكن في أول 10 */}
+                      {myRank > 10 && (() => {
+                        const me = leaderboard.find(e => e.userId === strapiId)
+                        if (!me) return null
+                        return (
+                          <>
+                            <div className="px-4 py-1 text-center text-muted text-xs">• • •</div>
+                            <div className="flex items-center gap-3 px-4 py-3 bg-primary/5 border-t border-primary/20">
+                              <span className="text-base w-7 text-center font-black text-primary">#{myRank}</span>
+                              <div className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">
+                                {getInitials(me.username || me.name || 'أنا')}
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-sm font-bold text-primary">{me.username || me.name || 'أنا'}</p>
+                                <p className="text-[10px] text-muted">{me.count ?? 0} صحيح</p>
+                              </div>
+                              <p className="text-lg font-black text-primary">{me.points ?? 0}</p>
+                            </div>
+                          </>
+                        )
+                      })()}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
       </div>
 
       {/* ─── Toast ─── */}
@@ -714,6 +1060,68 @@ export default function PredictPage() {
                 )
               })}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── مودال: إنشاء مجموعة ─── */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setShowCreate(false)}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative w-full max-w-[480px] bg-card border-t border-border rounded-t-3xl p-6 pb-10" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 bg-border rounded-full mx-auto mb-5" />
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-black text-lg text-text">➕ إنشاء مجموعة</h2>
+              <button onClick={() => setShowCreate(false)} className="w-8 h-8 rounded-full bg-border flex items-center justify-center text-muted text-sm">✕</button>
+            </div>
+            <p className="text-xs text-muted mb-3">سمّ المجموعة، ثم أرسل الرابط لأصدقائك لينضموا تلقائياً</p>
+            <input
+              value={newGroupName}
+              onChange={e => setNewGroupName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCreateGroup()}
+              placeholder="مثال: أصدقاء الجامعة"
+              className="w-full bg-bg border border-border rounded-2xl px-4 py-4 text-text text-sm font-medium outline-none focus:border-primary transition-colors"
+              autoFocus
+            />
+            <button
+              onClick={handleCreateGroup}
+              disabled={!newGroupName.trim() || creating}
+              className="w-full py-4 rounded-2xl bg-primary font-bold text-white mt-3 active:scale-95 transition-transform disabled:opacity-50"
+            >
+              {creating ? 'جاري الإنشاء...' : 'إنشاء المجموعة'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── مودال: انضمام بكود ─── */}
+      {showJoin && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setShowJoin(false)}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative w-full max-w-[480px] bg-card border-t border-border rounded-t-3xl p-6 pb-10" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 bg-border rounded-full mx-auto mb-5" />
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-black text-lg text-text">🔗 انضمام بكود</h2>
+              <button onClick={() => setShowJoin(false)} className="w-8 h-8 rounded-full bg-border flex items-center justify-center text-muted text-sm">✕</button>
+            </div>
+            <p className="text-xs text-muted mb-3 text-center">اطلب الكود من صاحب المجموعة</p>
+            <input
+              value={joinCode}
+              onChange={e => setJoinCode(e.target.value.toUpperCase())}
+              onKeyDown={e => e.key === 'Enter' && handleJoinGroup()}
+              placeholder="KRX-XXXX"
+              maxLength={8}
+              className="w-full bg-bg border border-border rounded-2xl px-4 py-4 text-text text-base font-black outline-none focus:border-primary transition-colors text-center tracking-widest"
+              autoFocus
+            />
+            {joinError && <p className="text-live text-xs text-center mt-1">{joinError}</p>}
+            <button
+              onClick={handleJoinGroup}
+              disabled={joinCode.length < 4 || joining}
+              className="w-full py-4 rounded-2xl bg-primary font-bold text-white mt-3 active:scale-95 transition-transform disabled:opacity-50"
+            >
+              {joining ? 'جاري الانضمام...' : 'انضمام'}
+            </button>
           </div>
         </div>
       )}
