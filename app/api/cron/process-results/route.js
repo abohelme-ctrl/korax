@@ -4,23 +4,24 @@
  * يُشغَّل تلقائياً كل 30 دقيقة عبر Vercel Cron.
  * يمكن أيضاً تشغيله يدوياً من لوحة الإدارة.
  *
- * يعالج ثلاثة أنواع:
- *  1. نتائج المباريات (FT/AET/PEN) → نقاط الفائز/النتيجة الدقيقة
- *  2. ترتيب المجموعات (بعد اكتمال كل مجموعة) → نقاط الأول/الثاني
- *  3. جوائز البطولة (بطل + وصيف + هداف) → من API-Football تلقائياً
+ * الإصلاحات:
+ *  - مقارنة الأرقام بـ Number() لتجنب خطأ "2 !== '2'"
+ *  - يفحص آخر 3 أيام بدلاً من يومين
+ *  - خريطة أسماء عربية أكثر اكتمالاً
+ *  - معالجة أخطاء أقوى
  */
 
 import axios from 'axios'
 import { POINTS } from '@/lib/scoring'
 
 // ─── ENV ──────────────────────────────────────────────────────────────────────
-const STRAPI_URL        = process.env.NEXT_PUBLIC_STRAPI_URL  || 'http://localhost:1337'
-const STRAPI_TOKEN      = process.env.STRAPI_API_TOKEN
-const API_KEY           = process.env.NEXT_PUBLIC_API_FOOTBALL_KEY
-const API_BASE          = process.env.NEXT_PUBLIC_API_FOOTBALL_BASE || 'https://v3.football.api-sports.io'
-const WC_LEAGUE         = Number(process.env.NEXT_PUBLIC_WC_LEAGUE_ID) || 1
-const WC_SEASON         = Number(process.env.NEXT_PUBLIC_WC_SEASON)    || 2026
-const CRON_SECRET       = process.env.CRON_SECRET
+const STRAPI_URL   = process.env.NEXT_PUBLIC_STRAPI_URL  || 'http://localhost:1337'
+const STRAPI_TOKEN = process.env.STRAPI_API_TOKEN
+const API_KEY      = process.env.NEXT_PUBLIC_API_FOOTBALL_KEY
+const API_BASE     = process.env.NEXT_PUBLIC_API_FOOTBALL_BASE || 'https://v3.football.api-sports.io'
+const WC_LEAGUE    = Number(process.env.NEXT_PUBLIC_WC_LEAGUE_ID) || 1
+const WC_SEASON    = Number(process.env.NEXT_PUBLIC_WC_SEASON)    || 2026
+const CRON_SECRET  = process.env.CRON_SECRET
 
 const FINISHED_STATUSES = new Set(['FT', 'AET', 'PEN'])
 
@@ -28,36 +29,156 @@ const FINISHED_STATUSES = new Set(['FT', 'AET', 'PEN'])
 const strapi = axios.create({
   baseURL: `${STRAPI_URL}/api`,
   headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${STRAPI_TOKEN}` },
+  timeout: 30000,
 })
 
 const apif = axios.create({
   baseURL: API_BASE,
   headers: { 'x-apisports-key': API_KEY },
+  timeout: 20000,
 })
 
-// ─── خريطة الأسماء العربية ────────────────────────────────────────────────────
+// ─── خريطة الأسماء العربية (كاملة لكأس العالم 2026) ──────────────────────────
 const AR = {
-  'Mexico':'المكسيك','South Africa':'جنوب أفريقيا','South Korea':'كوريا الجنوبية',
-  'Czech Republic':'التشيك','Canada':'كندا','Bosnia & Herzegovina':'البوسنة والهرسك',
-  'Qatar':'قطر','Switzerland':'سويسرا','Brazil':'البرازيل','Morocco':'المغرب',
-  'Haiti':'هايتي','Scotland':'اسكتلندا','USA':'الولايات المتحدة','Paraguay':'باراغواي',
-  'Australia':'أستراليا','Türkiye':'تركيا','Germany':'ألمانيا','Curaçao':'كوراساو',
-  'Ivory Coast':'ساحل العاج','Ecuador':'الإكوادور','Netherlands':'هولندا',
-  'Japan':'اليابان','Sweden':'السويد','Tunisia':'تونس','Belgium':'بلجيكا',
-  'Egypt':'مصر','Iran':'إيران','New Zealand':'نيوزيلندا','Spain':'إسبانيا',
-  'Cape Verde Islands':'الرأس الأخضر','Saudi Arabia':'السعودية','Uruguay':'أوروغواي',
-  'France':'فرنسا','Senegal':'السنغال','Iraq':'العراق','Norway':'النرويج',
-  'Argentina':'الأرجنتين','Algeria':'الجزائر','Austria':'النمسا','Jordan':'الأردن',
-  'Portugal':'البرتغال','Colombia':'كولومبيا','Uzbekistan':'أوزبكستان',
-  'Congo DR':'الكونغو','England':'إنجلترا','Croatia':'كرواتيا',
-  'Ghana':'غانا','Panama':'بنما',
+  // أمريكا الشمالية والمضيفون
+  'USA': 'الولايات المتحدة',
+  'United States': 'الولايات المتحدة',
+  'Canada': 'كندا',
+  'Mexico': 'المكسيك',
+
+  // أوروبا
+  'Germany': 'ألمانيا',
+  'France': 'فرنسا',
+  'Spain': 'إسبانيا',
+  'England': 'إنجلترا',
+  'Portugal': 'البرتغال',
+  'Netherlands': 'هولندا',
+  'Belgium': 'بلجيكا',
+  'Italy': 'إيطاليا',
+  'Croatia': 'كرواتيا',
+  'Switzerland': 'سويسرا',
+  'Austria': 'النمسا',
+  'Denmark': 'الدنمارك',
+  'Sweden': 'السويد',
+  'Norway': 'النرويج',
+  'Scotland': 'اسكتلندا',
+  'Serbia': 'صربيا',
+  'Ukraine': 'أوكرانيا',
+  'Poland': 'بولندا',
+  'Czech Republic': 'التشيك',
+  'Czechia': 'التشيك',
+  'Hungary': 'المجر',
+  'Slovakia': 'سلوفاكيا',
+  'Slovenia': 'سلوفينيا',
+  'Turkey': 'تركيا',
+  'Türkiye': 'تركيا',
+  'Romania': 'رومانيا',
+  'Greece': 'اليونان',
+  'Bosnia & Herzegovina': 'البوسنة والهرسك',
+  'Bosnia': 'البوسنة والهرسك',
+  'Albania': 'ألبانيا',
+  'Georgia': 'جورجيا',
+  'Iceland': 'آيسلندا',
+  'Wales': 'ويلز',
+  'Finland': 'فنلندا',
+
+  // أمريكا الجنوبية
+  'Brazil': 'البرازيل',
+  'Argentina': 'الأرجنتين',
+  'Uruguay': 'أوروغواي',
+  'Colombia': 'كولومبيا',
+  'Chile': 'تشيلي',
+  'Ecuador': 'الإكوادور',
+  'Peru': 'بيرو',
+  'Paraguay': 'باراغواي',
+  'Venezuela': 'فنزويلا',
+  'Bolivia': 'بوليفيا',
+
+  // أفريقيا
+  'Morocco': 'المغرب',
+  'Senegal': 'السنغال',
+  'Egypt': 'مصر',
+  'Nigeria': 'نيجيريا',
+  'Cameroon': 'الكاميرون',
+  'Ghana': 'غانا',
+  'Ivory Coast': "ساحل العاج",
+  "Côte d'Ivoire": "ساحل العاج",
+  'Algeria': 'الجزائر',
+  'Tunisia': 'تونس',
+  'South Africa': 'جنوب أفريقيا',
+  'Congo DR': 'الكونغو الديمقراطية',
+  'DR Congo': 'الكونغو الديمقراطية',
+  'Cape Verde Islands': 'الرأس الأخضر',
+  'Cape Verde': 'الرأس الأخضر',
+  'Mali': 'مالي',
+  'Angola': 'أنغولا',
+  'Tanzania': 'تنزانيا',
+  'Uganda': 'أوغندا',
+  'Benin': 'بنين',
+  'Zambia': 'زامبيا',
+  'Comoros': 'جزر القمر',
+  'Gabon': 'الغابون',
+  'Guinea': 'غينيا',
+  'Zimbabwe': 'زيمبابوي',
+
+  // آسيا
+  'Japan': 'اليابان',
+  'South Korea': 'كوريا الجنوبية',
+  'Iran': 'إيران',
+  'Saudi Arabia': 'السعودية',
+  'Australia': 'أستراليا',
+  'Qatar': 'قطر',
+  'Iraq': 'العراق',
+  'Jordan': 'الأردن',
+  'UAE': 'الإمارات',
+  'United Arab Emirates': 'الإمارات',
+  'Uzbekistan': 'أوزبكستان',
+  'China': 'الصين',
+  'India': 'الهند',
+  'Indonesia': 'إندونيسيا',
+  'Thailand': 'تايلاند',
+  'Oman': 'عُمان',
+  'Bahrain': 'البحرين',
+  'Kuwait': 'الكويت',
+  'Palestine': 'فلسطين',
+  'Tajikistan': 'طاجيكستان',
+  'Kyrgyzstan': 'قيرغيزستان',
+
+  // أمريكا الوسطى والكاريبي
+  'Panama': 'بنما',
+  'Costa Rica': 'كوستاريكا',
+  'Honduras': 'هندوراس',
+  'El Salvador': 'السلفادور',
+  'Jamaica': 'جامايكا',
+  'Cuba': 'كوبا',
+  'Trinidad & Tobago': 'ترينيداد وتوباغو',
+  'Haiti': 'هايتي',
+  'Curaçao': 'كوراساو',
+  'Guatemala': 'غواتيمالا',
+
+  // أوقيانوسيا
+  'New Zealand': 'نيوزيلندا',
+  'Fiji': 'فيجي',
 }
+
 const toAr = name => AR[name] || name
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── مساعدات ──────────────────────────────────────────────────────────────────
 function dateStr(offsetDays = 0) {
-  const d = new Date(); d.setDate(d.getDate() + offsetDays)
+  const d = new Date()
+  d.setDate(d.getDate() + offsetDays)
   return d.toISOString().slice(0, 10)
+}
+
+/** استخراج قيمة آمن من سجل Strapi (v4 يدعم attributes، أو flat) */
+function getAttr(pred, key) {
+  return pred?.attributes?.[key] ?? pred?.[key] ?? null
+}
+
+/** تحويل إلى رقم آمن — يحل مشكلة "2" !== 2 */
+function toNum(v) {
+  const n = Number(v)
+  return isNaN(n) ? null : n
 }
 
 /** جلب توقعات pending لـ matchId معين (كل الصفحات) */
@@ -66,21 +187,26 @@ async function fetchPending(matchId) {
   while (true) {
     const res = await strapi.get('/predictions', {
       params: {
-        filters: { matchId: { $eq: String(matchId) }, status: { $eq: 'pending' } },
-        pagination: { page, pageSize: 100 },
+        'filters[matchId][$eq]': String(matchId),
+        'filters[status][$eq]': 'pending',
+        'pagination[page]': page,
+        'pagination[pageSize]': 100,
       },
     })
-    const batch = res.data.data || []
+    const batch = res.data?.data || []
     all = all.concat(batch)
-    if (batch.length === 0 || all.length >= (res.data.meta?.pagination?.total || 0)) break
+    const total = res.data?.meta?.pagination?.total ?? 0
+    if (batch.length === 0 || all.length >= total) break
     page++
   }
   return all
 }
 
-/** تحديث نقاط توقع واحد */
+/** تحديث توقع واحد */
 async function updatePred(predId, pts, status, extra = {}) {
-  await strapi.put(`/predictions/${predId}`, { data: { points: pts, status, ...extra } })
+  await strapi.put(`/predictions/${predId}`, {
+    data: { points: pts, status, ...extra },
+  })
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -88,7 +214,8 @@ async function updatePred(predId, pts, status, extra = {}) {
 // ══════════════════════════════════════════════════════════════════════════════
 async function processMatches() {
   const results = []
-  const dates   = [dateStr(-1), dateStr(0)]
+  // نفحص آخر 3 أيام لضمان عدم فوات أي مباراة
+  const dates = [dateStr(-2), dateStr(-1), dateStr(0)]
 
   for (const date of dates) {
     let fixtures = []
@@ -96,38 +223,68 @@ async function processMatches() {
       const res = await apif.get('/fixtures', {
         params: { league: WC_LEAGUE, season: WC_SEASON, date },
       })
-      fixtures = (res.data?.response || []).filter(f => FINISHED_STATUSES.has(f.fixture.status.short))
-    } catch { continue }
+      fixtures = (res.data?.response || []).filter(f =>
+        FINISHED_STATUSES.has(f.fixture?.status?.short)
+      )
+    } catch (e) {
+      console.warn(`[cron] fixtures fetch failed for ${date}:`, e.message)
+      continue
+    }
 
     for (const f of fixtures) {
       const matchId = String(f.fixture.id)
-      const aHome   = f.goals.home ?? 0
-      const aAway   = f.goals.away ?? 0
+      const aHome   = toNum(f.goals?.home) ?? 0
+      const aAway   = toNum(f.goals?.away) ?? 0
 
-      const preds = await fetchPending(matchId)
+      let preds
+      try {
+        preds = await fetchPending(matchId)
+      } catch (e) {
+        console.warn(`[cron] fetchPending failed for match ${matchId}:`, e.message)
+        continue
+      }
+
       if (preds.length === 0) continue
 
       let exact = 0, winner = 0, wrong = 0
 
       for (const pred of preds) {
-        const pHome = pred.attributes?.homeScore ?? pred.homeScore ?? null
-        const pAway = pred.attributes?.awayScore ?? pred.awayScore ?? null
+        const pHome = toNum(getAttr(pred, 'homeScore'))
+        const pAway = toNum(getAttr(pred, 'awayScore'))
         if (pHome === null || pAway === null) continue
 
         let pts = 0, status = 'wrong'
+
         if (pHome === aHome && pAway === aAway) {
+          // نتيجة دقيقة = 3 نقاط
           pts = POINTS.MATCH_EXACT; status = 'exact'; exact++
         } else {
-          const pw = pHome > pAway ? 'home' : pAway > pHome ? 'away' : 'draw'
-          const rw = aHome > aAway ? 'home' : aAway > aHome ? 'away' : 'draw'
-          if (pw === rw) { pts = POINTS.MATCH_WINNER; status = 'won'; winner++ }
-          else wrong++
+          // هل توقّع الفائز صح؟
+          const pWinner = pHome > pAway ? 'home' : pAway > pHome ? 'away' : 'draw'
+          const rWinner = aHome > aAway ? 'home' : aAway > aHome ? 'away' : 'draw'
+          if (pWinner === rWinner) {
+            pts = POINTS.MATCH_WINNER; status = 'won'; winner++
+          } else {
+            wrong++
+          }
         }
-        await updatePred(pred.id, pts, status, { actualHomeScore: aHome, actualAwayScore: aAway })
+
+        try {
+          await updatePred(pred.id, pts, status, {
+            actualHomeScore: aHome,
+            actualAwayScore: aAway,
+          })
+        } catch (e) {
+          console.warn(`[cron] updatePred failed for pred ${pred.id}:`, e.message)
+        }
       }
 
-      results.push({ type: 'match', matchId, homeScore: aHome, awayScore: aAway,
-        total: preds.length, exact, winner, wrong })
+      results.push({
+        type: 'match', matchId,
+        home: f.teams?.home?.name, away: f.teams?.away?.name,
+        score: `${aHome}-${aAway}`,
+        total: preds.length, exact, winner, wrong,
+      })
     }
   }
   return results
@@ -145,47 +302,58 @@ async function processGroupStandings() {
       params: { league: WC_LEAGUE, season: WC_SEASON },
     })
     standings = res.data?.response?.[0]?.league?.standings || []
-  } catch { return results }
+  } catch (e) {
+    console.warn('[cron] standings fetch failed:', e.message)
+    return results
+  }
 
   for (const group of standings) {
-    if (!group || group.length < 2) continue
+    if (!Array.isArray(group) || group.length < 2) continue
 
-    // هل كل فرق المجموعة لعبت مبارياتها الثلاث؟
-    const allDone = group.every(entry => entry.all.played >= 3)
+    // هل كل فرق المجموعة أنهت مبارياتها الثلاث؟
+    const allDone = group.every(entry => (entry?.all?.played ?? 0) >= 3)
     if (!allDone) continue
 
-    // الترتيب مرتّب بالفعل من API (الأول أولاً)
-    const first  = toAr(group[0].team.name)
-    const second = toAr(group[1].team.name)
-    const grpId  = (group[0].group || '').replace('Group ', '') // 'A'..'L'
-    if (!grpId) continue
+    const first  = toAr(group[0]?.team?.name || '')
+    const second = toAr(group[1]?.team?.name || '')
+    const grpRaw = group[0]?.group || ''
+    const grpId  = grpRaw.replace('Group ', '').trim() // 'A'..'L'
+    if (!grpId || !first) continue
 
-    // معالجة المركز الأول
-    const preds1st = await fetchPending(`group_${grpId}_1st`)
-    if (preds1st.length > 0) {
-      let correct = 0
-      for (const pred of preds1st) {
-        const picked = (pred.attributes?.homeTeam || pred.homeTeam || '').trim()
-        const ok     = picked.toLowerCase() === first.toLowerCase()
-        await updatePred(pred.id, ok ? POINTS.GROUP_FIRST : 0, ok ? 'won' : 'wrong')
-        if (ok) correct++
+    // المركز الأول
+    try {
+      const preds1st = await fetchPending(`group_${grpId}_1st`)
+      if (preds1st.length > 0) {
+        let correct = 0
+        for (const pred of preds1st) {
+          const picked = (getAttr(pred, 'homeTeam') || '').trim()
+          const ok     = picked.toLowerCase() === first.toLowerCase()
+          await updatePred(pred.id, ok ? POINTS.GROUP_FIRST : 0, ok ? 'won' : 'wrong')
+          if (ok) correct++
+        }
+        results.push({ type: 'group', group: grpId, slot: '1st', actualTeam: first,
+          total: preds1st.length, correct, wrong: preds1st.length - correct })
       }
-      results.push({ type: 'group', group: grpId, slot: '1st', actualTeam: first,
-        total: preds1st.length, correct, wrong: preds1st.length - correct })
+    } catch (e) {
+      console.warn(`[cron] group ${grpId} 1st failed:`, e.message)
     }
 
-    // معالجة المركز الثاني
-    const preds2nd = await fetchPending(`group_${grpId}_2nd`)
-    if (preds2nd.length > 0) {
-      let correct = 0
-      for (const pred of preds2nd) {
-        const picked = (pred.attributes?.homeTeam || pred.homeTeam || '').trim()
-        const ok     = picked.toLowerCase() === second.toLowerCase()
-        await updatePred(pred.id, ok ? POINTS.GROUP_SECOND : 0, ok ? 'won' : 'wrong')
-        if (ok) correct++
+    // المركز الثاني
+    try {
+      const preds2nd = await fetchPending(`group_${grpId}_2nd`)
+      if (preds2nd.length > 0) {
+        let correct = 0
+        for (const pred of preds2nd) {
+          const picked = (getAttr(pred, 'homeTeam') || '').trim()
+          const ok     = picked.toLowerCase() === second.toLowerCase()
+          await updatePred(pred.id, ok ? POINTS.GROUP_SECOND : 0, ok ? 'won' : 'wrong')
+          if (ok) correct++
+        }
+        results.push({ type: 'group', group: grpId, slot: '2nd', actualTeam: second,
+          total: preds2nd.length, correct, wrong: preds2nd.length - correct })
       }
-      results.push({ type: 'group', group: grpId, slot: '2nd', actualTeam: second,
-        total: preds2nd.length, correct, wrong: preds2nd.length - correct })
+    } catch (e) {
+      console.warn(`[cron] group ${grpId} 2nd failed:`, e.message)
     }
   }
   return results
@@ -197,18 +365,17 @@ async function processGroupStandings() {
 async function processTournamentAwards() {
   const results = []
 
-  // ─── 3a. البطل والوصيف — من نتيجة النهائي ──────────────────────────────────
+  // ─── البطل والوصيف — من نتيجة النهائي ──────────────────────────────────────
   try {
     const res = await apif.get('/fixtures', {
       params: { league: WC_LEAGUE, season: WC_SEASON, round: 'Final' },
     })
     const finals = res.data?.response || []
-    const final  = finals.find(f => FINISHED_STATUSES.has(f.fixture.status.short))
+    const final  = finals.find(f => FINISHED_STATUSES.has(f.fixture?.status?.short))
 
     if (final) {
-      // الفائز في النهائي = البطل، الخاسر = الوصيف
-      const aHome = final.goals.home ?? 0
-      const aAway = final.goals.away ?? 0
+      const aHome = toNum(final.goals?.home) ?? 0
+      const aAway = toNum(final.goals?.away) ?? 0
 
       let championEn, finalistEn
       if (aHome > aAway) {
@@ -216,9 +383,10 @@ async function processTournamentAwards() {
       } else if (aAway > aHome) {
         championEn = final.teams.away.name; finalistEn = final.teams.home.name
       } else {
-        // تحديد الفائز في ركلات الترجيح من الأحداث (مؤقتاً نأخذ الفريق الذي تأهل)
-        championEn = final.teams.home.winner ? final.teams.home.name : final.teams.away.name
-        finalistEn = final.teams.home.winner ? final.teams.away.name : final.teams.home.name
+        // ركلات الترجيح — نعتمد على winner flag
+        const homeWon = final.teams.home.winner === true
+        championEn = homeWon ? final.teams.home.name : final.teams.away.name
+        finalistEn = homeWon ? final.teams.away.name : final.teams.home.name
       }
 
       const champion = toAr(championEn)
@@ -228,24 +396,28 @@ async function processTournamentAwards() {
         ['champion', champion, POINTS.AWARD_CHAMPION],
         ['finalist', finalist, POINTS.AWARD_FINALIST],
       ]) {
-        const preds = await fetchPending(`award_${awardId}`)
-        if (preds.length === 0) continue
-        let correct = 0
-        for (const pred of preds) {
-          const picked = (pred.attributes?.homeTeam || pred.homeTeam || '').trim()
-          const ok     = picked.toLowerCase() === actualTeam.toLowerCase()
-          await updatePred(pred.id, ok ? pts : 0, ok ? 'won' : 'wrong')
-          if (ok) correct++
+        try {
+          const preds = await fetchPending(`award_${awardId}`)
+          if (preds.length === 0) continue
+          let correct = 0
+          for (const pred of preds) {
+            const picked = (getAttr(pred, 'homeTeam') || '').trim()
+            const ok     = picked.toLowerCase() === actualTeam.toLowerCase()
+            await updatePred(pred.id, ok ? pts : 0, ok ? 'won' : 'wrong')
+            if (ok) correct++
+          }
+          results.push({ type: 'award', awardId, actualValue: actualTeam,
+            total: preds.length, correct, wrong: preds.length - correct })
+        } catch (e) {
+          console.warn(`[cron] award ${awardId} failed:`, e.message)
         }
-        results.push({ type: 'award', awardId, actualValue: actualTeam,
-          total: preds.length, correct, wrong: preds.length - correct })
       }
     }
   } catch (e) {
     console.warn('[cron] champion/finalist error:', e.message)
   }
 
-  // ─── 3b. هداف البطولة — من API topscorers ────────────────────────────────────
+  // ─── هداف البطولة — من API topscorers ────────────────────────────────────
   try {
     const predsTS = await fetchPending('award_topScorer')
     if (predsTS.length > 0) {
@@ -255,9 +427,9 @@ async function processTournamentAwards() {
       const top = res.data?.response?.[0]
       if (top) {
         const topName = top.player?.name || ''
-        let correct   = 0
+        let correct = 0
         for (const pred of predsTS) {
-          const picked = (pred.attributes?.homeTeam || pred.homeTeam || '').trim()
+          const picked = (getAttr(pred, 'homeTeam') || '').trim()
           const ok     = picked.toLowerCase() === topName.toLowerCase()
           await updatePred(pred.id, ok ? POINTS.AWARD_TOPSCORER : 0, ok ? 'won' : 'wrong')
           if (ok) correct++
@@ -271,8 +443,6 @@ async function processTournamentAwards() {
   }
 
   // ملاحظة: bestPlayer وsurprise يحتاجان إدخالاً يدوياً من الأدمن
-  // لأنهما قرار لجنة FIFA وليسا رقمياً قابلاً للاستخراج
-
   return results
 }
 
@@ -280,20 +450,20 @@ async function processTournamentAwards() {
 // Handler الرئيسي
 // ══════════════════════════════════════════════════════════════════════════════
 async function runAll() {
-  const [matchResults, groupResults, awardResults] = await Promise.allSettled([
+  const [matchRes, groupRes, awardRes] = await Promise.allSettled([
     processMatches(),
     processGroupStandings(),
     processTournamentAwards(),
   ])
 
   return {
-    matches: matchResults.status  === 'fulfilled' ? matchResults.value  : [],
-    groups:  groupResults.status  === 'fulfilled' ? groupResults.value  : [],
-    awards:  awardResults.status  === 'fulfilled' ? awardResults.value  : [],
+    matches: matchRes.status === 'fulfilled' ? matchRes.value : [],
+    groups:  groupRes.status === 'fulfilled' ? groupRes.value : [],
+    awards:  awardRes.status === 'fulfilled' ? awardRes.value : [],
     errors: [
-      matchResults.status === 'rejected' ? matchResults.reason?.message : null,
-      groupResults.status === 'rejected' ? groupResults.reason?.message : null,
-      awardResults.status === 'rejected' ? awardResults.reason?.message : null,
+      matchRes.status === 'rejected' ? `matches: ${matchRes.reason?.message}` : null,
+      groupRes.status === 'rejected' ? `groups: ${groupRes.reason?.message}`  : null,
+      awardRes.status === 'rejected' ? `awards: ${awardRes.reason?.message}`  : null,
     ].filter(Boolean),
   }
 }
@@ -308,16 +478,16 @@ export async function GET(req) {
     }
   }
 
-  if (!API_KEY || API_KEY === 'your_api_football_key_here') {
-    return Response.json({ message: 'API_FOOTBALL_KEY غير مضبوط', ok: false })
+  if (!API_KEY) {
+    return Response.json({ message: 'NEXT_PUBLIC_API_FOOTBALL_KEY غير مضبوط', ok: false })
   }
 
   try {
     const data = await runAll()
     const totalUpdated =
-      data.matches.reduce((s, r) => s + r.total, 0) +
-      data.groups.reduce((s, r)  => s + r.total, 0) +
-      data.awards.reduce((s, r)  => s + r.total, 0)
+      data.matches.reduce((s, r) => s + (r.total || 0), 0) +
+      data.groups.reduce((s, r)  => s + (r.total || 0), 0) +
+      data.awards.reduce((s, r)  => s + (r.total || 0), 0)
 
     return Response.json({
       ok: true,
