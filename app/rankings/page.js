@@ -229,6 +229,26 @@ export default function RankingsPage() {
         {view === 'friends' && (
           <div className="animate-in px-4">
 
+            {/* ── أزرار إنشاء / انضمام — دائماً في الأعلى ── */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <button
+                onClick={() => setShowCreate(true)}
+                className="card p-4 flex flex-col items-center gap-2 active:scale-95 transition-transform border-2 border-primary/40 bg-primary/5"
+              >
+                <span className="text-3xl">➕</span>
+                <span className="text-sm font-black text-primary">إنشاء مجموعة</span>
+                <span className="text-[10px] text-muted text-center">سمّها وادعُ أصدقاءك</span>
+              </button>
+              <button
+                onClick={() => setShowJoin(true)}
+                className="card p-4 flex flex-col items-center gap-2 active:scale-95 transition-transform border-2 border-border"
+              >
+                <span className="text-3xl">🔗</span>
+                <span className="text-sm font-black text-text">انضمام بكود</span>
+                <span className="text-[10px] text-muted text-center">أدخل كود المجموعة</span>
+              </button>
+            </div>
+
             {/* Group tabs */}
             {myGroups.length > 0 && (
               <div className="tab-bar mb-3 px-0">
@@ -255,40 +275,8 @@ export default function RankingsPage() {
                 onRemoveMember={handleRemoveMember}
               />
             ) : (
-              <EmptyGroups />
+              <EmptyGroups onCreate={() => setShowCreate(true)} onJoin={() => setShowJoin(true)} />
             )}
-
-            {/* Actions */}
-            <div className="grid grid-cols-2 gap-3 mt-4">
-              <button
-                onClick={() => setShowCreate(true)}
-                className="card p-4 flex flex-col items-center gap-2 active:scale-95 transition-transform border-primary/20 hover:border-primary/40"
-              >
-                <span className="text-2xl">➕</span>
-                <span className="text-sm font-bold text-primary">إنشاء مجموعة</span>
-              </button>
-              <button
-                onClick={() => setShowJoin(true)}
-                className="card p-4 flex flex-col items-center gap-2 active:scale-95 transition-transform"
-              >
-                <span className="text-2xl">🔗</span>
-                <span className="text-sm font-bold text-muted-light">انضمام بكود</span>
-              </button>
-            </div>
-
-            {/* Invite friend */}
-            <div className="mt-4 mb-4 card p-4 bg-gold-bg border-gold/20">
-              <div className="flex items-center gap-3">
-                <span className="text-3xl">🎁</span>
-                <div className="flex-1">
-                  <p className="font-bold text-text text-sm">ادعُ صديقك</p>
-                  <p className="text-xs text-muted">ادعُ صديقًا وخذ لاعبًا مجانًا</p>
-                </div>
-                <button className="px-4 py-2 rounded-xl bg-gold text-black text-xs font-black active:scale-95 transition-transform">
-                  دعوة
-                </button>
-              </div>
-            </div>
 
           </div>
         )}
@@ -598,12 +586,28 @@ function LeaderboardRow({ entry }) {
 
 // ─── Empty / Modal ─────────────────────────────────────────────────────────────
 
-function EmptyGroups() {
+function EmptyGroups({ onCreate, onJoin }) {
   return (
-    <div className="flex flex-col items-center gap-3 py-12 text-muted">
-      <span className="text-5xl">👥</span>
-      <p className="text-sm font-medium">لا توجد مجموعات بعد</p>
-      <p className="text-xs text-center max-w-[200px]">أنشئ مجموعة وشارك الكود مع أصدقائك</p>
+    <div className="card p-8 text-center border-2 border-dashed border-border">
+      <div className="text-5xl mb-3">👥</div>
+      <p className="font-black text-text text-lg mb-1">لا توجد مجموعات بعد</p>
+      <p className="text-xs text-muted mb-6 max-w-[220px] mx-auto">
+        أنشئ مجموعة مع أصدقائك وتنافسوا على أفضل التوقعات
+      </p>
+      <div className="space-y-3">
+        <button
+          onClick={onCreate}
+          className="w-full py-4 rounded-2xl bg-primary text-white font-black text-base active:scale-95 transition-transform shadow-lg shadow-primary/30"
+        >
+          ➕ أنشئ مجموعة الآن
+        </button>
+        <button
+          onClick={onJoin}
+          className="w-full py-3 rounded-2xl bg-card border border-border font-bold text-muted text-sm active:scale-95 transition-transform"
+        >
+          🔗 انضم بكود
+        </button>
+      </div>
     </div>
   )
 }
