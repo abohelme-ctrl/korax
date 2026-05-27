@@ -435,21 +435,22 @@ export default function PredictPage() {
         {/* ─── Tabs ─── */}
         <div className="flex gap-2 px-4 pt-4 pb-2">
           {[
-            { id: 'awards',   label: '🏆 الجوائز',    sub: `${awardDone}/${AWARDS.length}` },
-            { id: 'groups',   label: '📊 المجموعات',  sub: `${groupDone}/${groupTotal}` },
-            { id: 'mygroups', label: '👥 مجموعاتي والترتيب', sub: friendGroups.length > 0 ? `${friendGroups.length} مجموعة` : 'جديد' },
+            { id: 'awards',   icon: '🏆', label: 'الجوائز',    sub: `${awardDone}/${AWARDS.length}` },
+            { id: 'groups',   icon: '📊', label: 'المجموعات',  sub: `${groupDone}/${groupTotal}` },
+            { id: 'mygroups', icon: '👥', label: 'مجموعاتي',   sub: friendGroups.length > 0 ? `${friendGroups.length} مجموعات` : '+ أضف' },
           ].map(t => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex-1 py-3 rounded-2xl font-bold text-xs transition-all flex flex-col items-center gap-0.5 ${
+              className={`flex-1 py-2.5 rounded-2xl font-bold text-xs transition-all flex flex-col items-center gap-0.5 ${
                 tab === t.id
                   ? 'bg-primary text-white shadow-md shadow-primary/30'
                   : 'bg-card border border-border text-muted'
               }`}
             >
-              <span>{t.label}</span>
-              <span className={`text-[10px] font-black ${tab === t.id ? 'text-white/80' : 'text-muted'}`}>
+              <span className="text-base">{t.icon}</span>
+              <span className="font-black text-[11px]">{t.label}</span>
+              <span className={`text-[9px] font-bold ${tab === t.id ? 'text-white/70' : 'text-muted'}`}>
                 {t.sub}
               </span>
             </button>
