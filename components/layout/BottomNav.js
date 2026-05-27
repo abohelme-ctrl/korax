@@ -4,11 +4,11 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const NAV_ITEMS = [
-  { href: '/',                      icon: HomeIcon,    label: 'الرئيسية'  },
-  { href: '/predict',               icon: PredictIcon, label: 'توقعاتي'   },
-  { href: '/rankings?tab=friends',  icon: GroupsIcon,  label: 'مجموعاتي'  },
-  { href: '/rankings',              icon: TrophyIcon,  label: 'الترتيب'   },
-  { href: '/news',                  icon: NewsIcon,    label: 'الأخبار'   },
+  { href: '/',          icon: HomeIcon,      label: 'الرئيسية' },
+  { href: '/rankings',  icon: TrophyIcon,    label: 'الترتيب'  },
+  { href: '/predict',   icon: PredictIcon,   label: 'توقعاتي'  },
+  { href: '/simulator', icon: SimulatorIcon, label: 'المحاكي'  },
+  { href: '/news',      icon: NewsIcon,      label: 'الأخبار'  },
 ]
 
 export default function BottomNav() {
@@ -18,11 +18,7 @@ export default function BottomNav() {
     <nav className="bottom-nav">
       <div className="flex items-center justify-around h-16 px-2">
         {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
-          const hrefPath = href.split('?')[0]
-          const active = pathname === hrefPath ||
-            (href === '/rankings?tab=friends' && pathname === '/rankings' && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab') === 'friends') ||
-            (href === '/rankings' && pathname === '/rankings' && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab') !== 'friends' && !window.location.search.includes('tab=friends')) ||
-            (hrefPath !== '/' && hrefPath !== '/rankings' && pathname.startsWith(hrefPath))
+          const active = pathname === href || (href !== '/' && pathname.startsWith(href))
           return (
             <Link key={href} href={href} className="flex flex-col items-center gap-0.5 flex-1 py-1 group">
               <div className={`

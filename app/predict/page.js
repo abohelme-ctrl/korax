@@ -437,7 +437,7 @@ export default function PredictPage() {
           {[
             { id: 'awards',   label: '🏆 الجوائز',    sub: `${awardDone}/${AWARDS.length}` },
             { id: 'groups',   label: '📊 المجموعات',  sub: `${groupDone}/${groupTotal}` },
-            { id: 'mygroups', label: '👥 مجموعاتي',   sub: friendGroups.length > 0 ? `${friendGroups.length} مجموعة` : 'جديد' },
+            { id: 'mygroups', label: '👥 مجموعاتي والترتيب', sub: friendGroups.length > 0 ? `${friendGroups.length} مجموعة` : 'جديد' },
           ].map(t => (
             <button
               key={t.id}
