@@ -9,7 +9,7 @@ import LiveBadge, { UpcomingBadge, FinishedBadge } from '@/components/match/Live
 import MatchEvents from '@/components/match/MatchEvents'
 import MatchStats from '@/components/match/MatchStats'
 import MatchLineup from '@/components/match/MatchLineup'
-import { fetchMatchDetails, fetchPrediction, fetchH2H, INTERVAL_LIVE, INTERVAL_IDLE } from '@/lib/api-football'
+import { fetchMatchDetails, fetchPrediction, fetchH2H, fetchMatchPlayers, INTERVAL_LIVE, INTERVAL_IDLE } from '@/lib/api-football'
 import { formatMatchTime, getUserTimezone } from '@/lib/utils'
 
 const TABS = [
@@ -24,6 +24,7 @@ export default function MatchPage() {
   const [match, setMatch]           = useState(null)
   const [aiPrediction, setAiPred]   = useState(null)
   const [h2h, setH2H]               = useState([])
+  const [playerStats, setPlayerStats] = useState(null)
   const [tab, setTab]               = useState('events')
   const [loading, setLoading]       = useState(true)
 
@@ -31,13 +32,15 @@ export default function MatchPage() {
     fetchMatchDetails(id)
       .then(m => {
         setMatch(m)
-        // Fetch AI prediction + H2H in parallel
-        Promise.all([
+        // جلب كل البيانات الإضافية بالتوازي
+        Promise.allSettled([
           fetchPrediction(id),
           fetchH2H(m.homeTeam.id, m.awayTeam.id),
-        ]).then(([pred, h2hData]) => {
-          setAiPred(pred)
-          setH2H(h2hData)
+          fetchMatchPlayers(id),
+        ]).then(([predR, h2hR, playersR]) => {
+          if (predR.status    === 'fulfilled') setAiPred(predR.value)
+          if (h2hR.status     === 'fulfilled') setH2H(h2hR.value)
+          if (playersR.status === 'fulfilled') setPlayerStats(playersR.value)
         })
       })
       .finally(() => setLoading(false))
@@ -152,7 +155,7 @@ export default function MatchPage() {
         <div className="animate-in">
           {tab === 'events'  && <MatchEvents events={match.events} homeTeam={homeTeam} awayTeam={awayTeam} />}
           {tab === 'stats'   && <MatchStats stats={match.stats} homeTeam={homeTeam} awayTeam={awayTeam} />}
-          {tab === 'lineups' && <MatchLineup lineups={match.lineups} homeTeam={homeTeam} awayTeam={awayTeam} />}
+          {tab === 'lineups' && <MatchLineup lineups={match.lineups} homeTeam={homeTeam} awayTeam={awayTeam} playerStats={playerStats} />}
           {tab === 'h2h'     && <H2HView matches={h2h} homeTeam={homeTeam} awayTeam={awayTeam} />}
         </div>
 
