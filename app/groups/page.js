@@ -2,99 +2,142 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Header from '@/components/layout/Header'
 import BottomNav from '@/components/layout/BottomNav'
+import { fetchStandings } from '@/lib/api-football'
 
-// بيانات مجموعات كأس العالم 2026
-const GROUPS = [
+// بيانات ثابتة كاحتياط قبل بدء البطولة
+const STATIC_GROUPS = [
   { id: 'A', teams: [
-    { id: '16',   name: 'المكسيك',          flag: '🇲🇽', stars: 0 },
-    { id: '1531', name: 'جنوب أفريقيا',     flag: '🇿🇦', stars: 0 },
-    { id: '149',  name: 'كوريا الجنوبية',   flag: '🇰🇷', stars: 0 },
-    { id: '798',  name: 'التشيك',            flag: '🇨🇿', stars: 0 },
+    { id: '16',   name: 'المكسيك',          flag: '🇲🇽' },
+    { id: '1531', name: 'جنوب أفريقيا',     flag: '🇿🇦' },
+    { id: '149',  name: 'كوريا الجنوبية',   flag: '🇰🇷' },
+    { id: '798',  name: 'التشيك',            flag: '🇨🇿' },
   ]},
   { id: 'B', teams: [
-    { id: '101',  name: 'كندا',              flag: '🇨🇦', stars: 0 },
-    { id: '776',  name: 'البوسنة والهرسك',  flag: '🇧🇦', stars: 0 },
-    { id: '164',  name: 'قطر',               flag: '🇶🇦', stars: 0 },
-    { id: '15',   name: 'سويسرا',            flag: '🇨🇭', stars: 0 },
+    { id: '101',  name: 'كندا',              flag: '🇨🇦' },
+    { id: '776',  name: 'البوسنة والهرسك',  flag: '🇧🇦' },
+    { id: '164',  name: 'قطر',               flag: '🇶🇦' },
+    { id: '15',   name: 'سويسرا',            flag: '🇨🇭' },
   ]},
   { id: 'C', teams: [
-    { id: '6',    name: 'البرازيل',          flag: '🇧🇷', stars: 5 },
-    { id: '32',   name: 'المغرب',            flag: '🇲🇦', stars: 0 },
-    { id: '507',  name: 'هايتي',             flag: '🇭🇹', stars: 0 },
-    { id: '1108', name: 'اسكتلندا',          flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', stars: 0 },
+    { id: '6',    name: 'البرازيل',          flag: '🇧🇷' },
+    { id: '32',   name: 'المغرب',            flag: '🇲🇦' },
+    { id: '507',  name: 'هايتي',             flag: '🇭🇹' },
+    { id: '1108', name: 'اسكتلندا',          flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' },
   ]},
   { id: 'D', teams: [
-    { id: '2',    name: 'الولايات المتحدة', flag: '🇺🇸', stars: 0 },
-    { id: '779',  name: 'باراغواي',          flag: '🇵🇾', stars: 0 },
-    { id: '25',   name: 'أستراليا',          flag: '🇦🇺', stars: 0 },
-    { id: '741',  name: 'تركيا',             flag: '🇹🇷', stars: 0 },
+    { id: '2',    name: 'الولايات المتحدة', flag: '🇺🇸' },
+    { id: '779',  name: 'باراغواي',          flag: '🇵🇾' },
+    { id: '25',   name: 'أستراليا',          flag: '🇦🇺' },
+    { id: '741',  name: 'تركيا',             flag: '🇹🇷' },
   ]},
   { id: 'E', teams: [
-    { id: '3',    name: 'ألمانيا',           flag: '🇩🇪', stars: 4 },
-    { id: '1532', name: 'كوراساو',           flag: '🇨🇼', stars: 0 },
-    { id: '31',   name: 'ساحل العاج',        flag: '🇨🇮', stars: 0 },
-    { id: '57',   name: 'الإكوادور',         flag: '🇪🇨', stars: 0 },
+    { id: '3',    name: 'ألمانيا',           flag: '🇩🇪' },
+    { id: '1532', name: 'كوراساو',           flag: '🇨🇼' },
+    { id: '31',   name: 'ساحل العاج',        flag: '🇨🇮' },
+    { id: '57',   name: 'الإكوادور',         flag: '🇪🇨' },
   ]},
   { id: 'F', teams: [
-    { id: '1',    name: 'هولندا',            flag: '🇳🇱', stars: 0 },
-    { id: '2601', name: 'اليابان',           flag: '🇯🇵', stars: 0 },
-    { id: '744',  name: 'السويد',            flag: '🇸🇪', stars: 0 },
-    { id: '4601', name: 'تونس',              flag: '🇹🇳', stars: 0 },
+    { id: '1',    name: 'هولندا',            flag: '🇳🇱' },
+    { id: '2601', name: 'اليابان',           flag: '🇯🇵' },
+    { id: '744',  name: 'السويد',            flag: '🇸🇪' },
+    { id: '4601', name: 'تونس',              flag: '🇹🇳' },
   ]},
   { id: 'G', teams: [
-    { id: '4',    name: 'بلجيكا',            flag: '🇧🇪', stars: 0 },
-    { id: '36',   name: 'مصر',               flag: '🇪🇬', stars: 0 },
-    { id: '66',   name: 'إيران',             flag: '🇮🇷', stars: 0 },
-    { id: '1537', name: 'نيوزيلندا',         flag: '🇳🇿', stars: 0 },
+    { id: '4',    name: 'بلجيكا',            flag: '🇧🇪' },
+    { id: '36',   name: 'مصر',               flag: '🇪🇬' },
+    { id: '66',   name: 'إيران',             flag: '🇮🇷' },
+    { id: '1537', name: 'نيوزيلندا',         flag: '🇳🇿' },
   ]},
   { id: 'H', teams: [
-    { id: '9',    name: 'إسبانيا',           flag: '🇪🇸', stars: 1 },
-    { id: '1533', name: 'الرأس الأخضر',      flag: '🇨🇻', stars: 0 },
-    { id: '141',  name: 'السعودية',          flag: '🇸🇦', stars: 0 },
-    { id: '13',   name: 'أوروغواي',          flag: '🇺🇾', stars: 2 },
+    { id: '9',    name: 'إسبانيا',           flag: '🇪🇸' },
+    { id: '1533', name: 'الرأس الأخضر',      flag: '🇨🇻' },
+    { id: '141',  name: 'السعودية',          flag: '🇸🇦' },
+    { id: '13',   name: 'أوروغواي',          flag: '🇺🇾' },
   ]},
   { id: 'I', teams: [
-    { id: '2',    name: 'فرنسا',             flag: '🇫🇷', stars: 2 },
-    { id: '33',   name: 'السنغال',           flag: '🇸🇳', stars: 0 },
-    { id: '796',  name: 'العراق',            flag: '🇮🇶', stars: 0 },
-    { id: '755',  name: 'النرويج',           flag: '🇳🇴', stars: 0 },
+    { id: '2',    name: 'فرنسا',             flag: '🇫🇷' },
+    { id: '33',   name: 'السنغال',           flag: '🇸🇳' },
+    { id: '796',  name: 'العراق',            flag: '🇮🇶' },
+    { id: '755',  name: 'النرويج',           flag: '🇳🇴' },
   ]},
   { id: 'J', teams: [
-    { id: '26',   name: 'الأرجنتين',         flag: '🇦🇷', stars: 3 },
-    { id: '46',   name: 'الجزائر',           flag: '🇩🇿', stars: 0 },
-    { id: '775',  name: 'النمسا',            flag: '🇦🇹', stars: 0 },
-    { id: '765',  name: 'الأردن',            flag: '🇯🇴', stars: 0 },
+    { id: '26',   name: 'الأرجنتين',         flag: '🇦🇷' },
+    { id: '46',   name: 'الجزائر',           flag: '🇩🇿' },
+    { id: '775',  name: 'النمسا',            flag: '🇦🇹' },
+    { id: '765',  name: 'الأردن',            flag: '🇯🇴' },
   ]},
   { id: 'K', teams: [
-    { id: '27',   name: 'البرتغال',          flag: '🇵🇹', stars: 0 },
-    { id: '56',   name: 'كولومبيا',          flag: '🇨🇴', stars: 0 },
-    { id: '1534', name: 'أوزبكستان',         flag: '🇺🇿', stars: 0 },
-    { id: '1535', name: 'الكونغو',           flag: '🇨🇩', stars: 0 },
+    { id: '27',   name: 'البرتغال',          flag: '🇵🇹' },
+    { id: '56',   name: 'كولومبيا',          flag: '🇨🇴' },
+    { id: '1534', name: 'أوزبكستان',         flag: '🇺🇿' },
+    { id: '1535', name: 'الكونغو',           flag: '🇨🇩' },
   ]},
   { id: 'L', teams: [
-    { id: '10',   name: 'إنجلترا',           flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', stars: 1 },
-    { id: '3001', name: 'كرواتيا',           flag: '🇭🇷', stars: 0 },
-    { id: '14',   name: 'غانا',              flag: '🇬🇭', stars: 0 },
-    { id: '1536', name: 'بنما',              flag: '🇵🇦', stars: 0 },
+    { id: '10',   name: 'إنجلترا',           flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
+    { id: '3001', name: 'كرواتيا',           flag: '🇭🇷' },
+    { id: '14',   name: 'غانا',              flag: '🇬🇭' },
+    { id: '1536', name: 'بنما',              flag: '🇵🇦' },
   ]},
 ]
 
 const FILTER_ITEMS = [
   { id: 'all', label: 'كل المجموعات' },
-  { id: 'A', label: 'A' }, { id: 'B', label: 'B' }, { id: 'C', label: 'C' },
-  { id: 'D', label: 'D' }, { id: 'E', label: 'E' }, { id: 'F', label: 'F' },
-  { id: 'G', label: 'G' }, { id: 'H', label: 'H' }, { id: 'I', label: 'I' },
-  { id: 'J', label: 'J' }, { id: 'K', label: 'K' }, { id: 'L', label: 'L' },
+  ...'ABCDEFGHIJKL'.split('').map(l => ({ id: l, label: l })),
 ]
 
 export default function GroupsPage() {
-  const [filter, setFilter] = useState('all')
+  const [filter, setFilter]   = useState('all')
+  const [groups, setGroups]   = useState(null)   // null = loading
+  const [liveData, setLiveData] = useState(false) // هل البيانات حقيقية؟
+  const [lastUpdate, setLastUpdate] = useState(null)
 
-  const visible = filter === 'all' ? GROUPS : GROUPS.filter(g => g.id === filter)
+  useEffect(() => {
+    loadStandings()
+    // تحديث كل 5 دقائق
+    const interval = setInterval(loadStandings, 5 * 60_000)
+    return () => clearInterval(interval)
+  }, [])
+
+  async function loadStandings() {
+    try {
+      const data = await fetchStandings()
+      if (data && data.length > 0 && data[0].teams?.[0]?.played !== undefined) {
+        // بيانات حقيقية من API
+        setGroups(data)
+        setLiveData(true)
+        setLastUpdate(new Date())
+      } else {
+        // قبل البطولة أو بيانات mock
+        setGroups(STATIC_GROUPS.map(g => ({
+          ...g,
+          teams: g.teams.map(t => ({
+            team: { id: t.id, name: t.name, flag: t.flag },
+            played: 0, won: 0, draw: 0, lost: 0, gf: 0, ga: 0, pts: 0,
+          }))
+        })))
+        setLiveData(false)
+        setLastUpdate(new Date())
+      }
+    } catch {
+      // عند الخطأ نعرض البيانات الثابتة
+      setGroups(STATIC_GROUPS.map(g => ({
+        ...g,
+        teams: g.teams.map(t => ({
+          team: { id: t.id, name: t.name, flag: t.flag },
+          played: 0, won: 0, draw: 0, lost: 0, gf: 0, ga: 0, pts: 0,
+        }))
+      })))
+      setLiveData(false)
+    }
+  }
+
+  const visible = !groups ? [] : (
+    filter === 'all' ? groups : groups.filter(g => g.id === filter)
+  )
 
   return (
     <div>
@@ -110,10 +153,17 @@ export default function GroupsPage() {
               <p className="text-xs font-bold text-text">كأس العالم 2026</p>
               <p className="text-[10px] text-muted">48 منتخب · 12 مجموعة · تبدأ 11 يونيو</p>
             </div>
-            <div className="flex gap-0.5">
-              <span className="text-lg">🇨🇦</span>
-              <span className="text-lg">🇲🇽</span>
-              <span className="text-lg">🇺🇸</span>
+            <div className="flex flex-col items-end gap-0.5">
+              <div className="flex gap-0.5">
+                <span className="text-lg">🇨🇦</span>
+                <span className="text-lg">🇲🇽</span>
+                <span className="text-lg">🇺🇸</span>
+              </div>
+              {liveData && lastUpdate && (
+                <span className="text-[9px] text-green font-bold">
+                  ● مباشر
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -135,23 +185,43 @@ export default function GroupsPage() {
           ))}
         </div>
 
+        {/* Loading */}
+        {!groups && (
+          <div className="px-4 space-y-3">
+            {[1,2,3].map(i => (
+              <div key={i} className="card h-40 animate-pulse">
+                <div className="h-full bg-card-hover rounded-2xl" />
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Groups */}
-        <div className="px-4 pb-4 space-y-3">
-          {visible.map(group => (
-            <GroupCard key={group.id} group={group} />
-          ))}
-        </div>
+        {groups && (
+          <div className="px-4 pb-4 space-y-3">
+            {visible.map(group => (
+              <GroupCard key={group.id} group={group} liveData={liveData} />
+            ))}
+          </div>
+        )}
 
         {/* Legend */}
-        <div className="mx-4 mb-4 card p-3">
-          <div className="flex items-center gap-4 justify-center flex-wrap">
-            <LegendItem color="bg-primary" label="يتأهل للدور الثاني (أفضل 2)" />
-            <LegendItem color="bg-gold"    label="قد يتأهل (أفضل الثالثين)" />
+        {groups && (
+          <div className="mx-4 mb-4 card p-3">
+            <div className="flex items-center gap-4 justify-center flex-wrap">
+              <LegendItem color="bg-primary" label="يتأهل للدور الثاني (أفضل 2)" />
+              <LegendItem color="bg-gold"    label="قد يتأهل (أفضل الثالثين)" />
+            </div>
+            <p className="text-center text-[10px] text-muted mt-2">
+              ل = لعب &nbsp;·&nbsp; ف = فوز &nbsp;·&nbsp; ت = تعادل &nbsp;·&nbsp; خ = خسارة &nbsp;·&nbsp; ف:ض &nbsp;·&nbsp; ن = نقاط
+            </p>
+            {liveData && lastUpdate && (
+              <p className="text-center text-[9px] text-muted/60 mt-1">
+                آخر تحديث: {lastUpdate.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            )}
           </div>
-          <p className="text-center text-[10px] text-muted mt-2">
-            ل = لعب &nbsp;·&nbsp; ف = فوز &nbsp;·&nbsp; ت = تعادل &nbsp;·&nbsp; خ = خسارة &nbsp;·&nbsp; ن = نقاط
-          </p>
-        </div>
+        )}
 
       </div>
       <BottomNav />
@@ -161,8 +231,19 @@ export default function GroupsPage() {
 
 // ─── Group Card ────────────────────────────────────────────────────────────────
 
-function GroupCard({ group }) {
+function GroupCard({ group, liveData }) {
   const [open, setOpen] = useState(true)
+
+  // ترتيب المنتخبات: نقاط ← فرق الأهداف ← أهداف للمرمى
+  const sortedTeams = [...group.teams].sort((a, b) => {
+    if (b.pts !== a.pts) return b.pts - a.pts
+    const gdA = a.gf - a.ga
+    const gdB = b.gf - b.ga
+    if (gdB !== gdA) return gdB - gdA
+    return b.gf - a.gf
+  })
+
+  const groupLetter = group.id
 
   return (
     <div className="card overflow-hidden">
@@ -173,16 +254,21 @@ function GroupCard({ group }) {
       >
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/30">
-            <span className="text-white font-black text-sm">{group.id}</span>
+            <span className="text-white font-black text-sm">{groupLetter}</span>
           </div>
           <div>
-            <span className="font-black text-text text-sm">المجموعة {group.id}</span>
+            <span className="font-black text-text text-sm">المجموعة {groupLetter}</span>
             <span className="text-[10px] text-muted mr-2">
-              {group.teams.map(t => t.flag).join(' ')}
+              {sortedTeams.map(t => t.team?.flag || '🏳️').join(' ')}
             </span>
           </div>
         </div>
-        <span className="text-muted text-xs">{open ? '▲' : '▼'}</span>
+        <div className="flex items-center gap-2">
+          {liveData && sortedTeams.some(t => t.played > 0) && (
+            <span className="text-[9px] text-green font-bold bg-green/10 px-1.5 py-0.5 rounded-full">● حي</span>
+          )}
+          <span className="text-muted text-xs">{open ? '▲' : '▼'}</span>
+        </div>
       </button>
 
       {open && (
@@ -190,14 +276,14 @@ function GroupCard({ group }) {
           {/* Table header */}
           <div className="flex items-center px-4 py-1.5 bg-card-hover border-b border-border">
             <span className="flex-1 text-[10px] text-muted font-bold">المنتخب</span>
-            {['ل','ف','ت','خ','ن'].map(h => (
-              <span key={h} className="w-7 text-center text-[10px] text-muted font-bold">{h}</span>
+            {['ل','ف','ت','خ','ف:ض','ن'].map(h => (
+              <span key={h} className={`text-center text-[10px] text-muted font-bold ${h === 'ف:ض' ? 'w-10' : 'w-7'}`}>{h}</span>
             ))}
           </div>
 
           {/* Teams */}
-          {group.teams.map((team, i) => (
-            <TeamRow key={team.id} team={team} rank={i + 1} qualify={i < 2} />
+          {sortedTeams.map((entry, i) => (
+            <TeamRow key={entry.team?.id || i} entry={entry} rank={i + 1} qualify={i < 2} />
           ))}
         </>
       )}
@@ -205,15 +291,15 @@ function GroupCard({ group }) {
   )
 }
 
-function TeamRow({ team, rank, qualify }) {
-  // قبل البطولة: كل الأرقام صفر
-  const stats = { p: 0, w: 0, d: 0, l: 0, pts: 0 }
+function TeamRow({ entry, rank, qualify }) {
+  const { team, played, won, draw, lost, gf, ga, pts } = entry
+  const gd = (gf || 0) - (ga || 0)
 
   return (
     <Link
-      href={`/nation/${team.id}`}
+      href={`/nation/${team?.id}`}
       className={`flex items-center px-4 py-3 border-b border-border last:border-b-0 transition-colors active:bg-card-hover ${
-        qualify ? 'border-r-2 border-r-primary' : ''
+        qualify ? 'border-r-2 border-r-primary' : rank === 3 ? 'border-r-2 border-r-gold' : ''
       }`}
     >
       {/* Rank */}
@@ -223,26 +309,19 @@ function TeamRow({ team, rank, qualify }) {
 
       {/* Flag + Name */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        <span className="text-xl flex-shrink-0">{team.flag}</span>
-        <span className="text-sm font-bold text-text truncate">{team.name}</span>
-        {team.stars > 0 && (
-          <span className="text-[9px] text-gold flex-shrink-0">
-            {'⭐'.repeat(Math.min(team.stars, 3))}
-          </span>
-        )}
+        <span className="text-xl flex-shrink-0">{team?.flag || '🏳️'}</span>
+        <span className="text-sm font-bold text-text truncate">{team?.name || ''}</span>
       </div>
 
-      {/* Stats */}
-      {[stats.p, stats.w, stats.d, stats.l, stats.pts].map((val, i) => (
-        <span
-          key={i}
-          className={`w-7 text-center text-xs ${
-            i === 4 ? 'font-black text-primary' : 'text-muted font-medium'
-          }`}
-        >
-          {val}
-        </span>
-      ))}
+      {/* Stats: ل ف ت خ ف:ض ن */}
+      <span className="w-7 text-center text-xs text-muted font-medium">{played ?? 0}</span>
+      <span className="w-7 text-center text-xs text-muted font-medium">{won ?? 0}</span>
+      <span className="w-7 text-center text-xs text-muted font-medium">{draw ?? 0}</span>
+      <span className="w-7 text-center text-xs text-muted font-medium">{lost ?? 0}</span>
+      <span className={`w-10 text-center text-xs font-medium ${gd > 0 ? 'text-green' : gd < 0 ? 'text-live' : 'text-muted'}`}>
+        {gd > 0 ? `+${gd}` : gd}
+      </span>
+      <span className="w-7 text-center text-xs font-black text-primary">{pts ?? 0}</span>
     </Link>
   )
 }
