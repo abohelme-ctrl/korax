@@ -18,23 +18,24 @@ export default function RankingsPage() {
       .catch(() => setStandings([]))
   }, [])
 
-  // ── بناء قائمة المنتخبات ─────────────────────────────────────────────────────
-  const allTeams = (standings || []).flatMap(g =>
-    (g.teams || []).map(t => ({ ...t, groupId: g.id, groupName: g.name || `المجموعة ${g.id}` }))
+  // ── ترتيب المنتخبات داخل كل مجموعة ─────────────────────────────────────────
+  function sortTeams(teams) {
+    return [...teams].sort((a, b) => {
+      if (sortBy === 'w')  return (b.won ?? 0) - (a.won  ?? 0) || (b.pts ?? 0) - (a.pts ?? 0)
+      if (sortBy === 'gf') return (b.gf  ?? 0) - (a.gf   ?? 0) || (b.pts ?? 0) - (a.pts ?? 0)
+      if (b.pts !== a.pts) return (b.pts ?? 0) - (a.pts  ?? 0)
+      return ((b.gf ?? 0) - (b.ga ?? 0)) - ((a.gf ?? 0) - (a.ga ?? 0))
+    })
+  }
+
+  // المجموعات المراد عرضها (كل أو مجموعة واحدة)
+  const visibleGroups = (standings || [])
+    .filter(g => groupFilter === 'all' || g.id === groupFilter)
+    .map(g => ({ ...g, teams: sortTeams(g.teams || []) }))
+
+  const started = (standings || []).some(g =>
+    (g.teams || []).some(t => (t.played ?? 0) > 0)
   )
-
-  const filtered = groupFilter === 'all'
-    ? allTeams
-    : allTeams.filter(t => t.groupId === groupFilter)
-
-  const sorted = [...filtered].sort((a, b) => {
-    if (sortBy === 'w')  return (b.won ?? 0) - (a.won  ?? 0) || (b.pts ?? 0) - (a.pts ?? 0)
-    if (sortBy === 'gf') return (b.gf  ?? 0) - (a.gf   ?? 0) || (b.pts ?? 0) - (a.pts ?? 0)
-    if (b.pts !== a.pts) return (b.pts ?? 0) - (a.pts  ?? 0)
-    return ((b.gf ?? 0) - (b.ga ?? 0)) - ((a.gf ?? 0) - (a.ga ?? 0))
-  })
-
-  const started = sorted.some(t => (t.played ?? 0) > 0)
 
   return (
     <div>
@@ -114,73 +115,23 @@ export default function RankingsPage() {
           </div>
         )}
 
-        {/* ── Standings Table ── */}
+        {/* ── جداول المجموعات ── */}
         {standings !== null && (
-          <div className="mx-4 card overflow-hidden">
-            {/* Table header */}
-            <div className="flex items-center px-3 py-2 bg-card-hover border-b border-border">
-              <span className="w-7 text-[10px] text-muted font-bold text-center">#</span>
-              <span className="flex-1 text-[10px] text-muted font-bold">المنتخب</span>
-              {['ل','ف','ت','خ','ف:ض','ن'].map(h => (
-                <span key={h} className={`text-center text-[10px] font-bold ${
-                  (h === 'ن' && sortBy === 'pts') || (h === 'ف' && sortBy === 'w') || (h === 'ف:ض' && sortBy === 'gf')
-                    ? 'text-primary ' : 'text-muted '
-                }${h === 'ف:ض' ? 'w-10' : 'w-7'}`}>{h}</span>
-              ))}
-            </div>
+          <div className="px-4 space-y-3 pb-2">
 
-            {sorted.length === 0 && (
+            {visibleGroups.length === 0 && (
               <div className="py-10 text-center text-muted text-sm">لا توجد بيانات</div>
             )}
 
-            {sorted.map((entry, i) => {
-              const gd = (entry.gf ?? 0) - (entry.ga ?? 0)
-              const qualify    = groupFilter === 'all' ? i < 24 : i < 2
-              const mayQualify = !qualify && (groupFilter === 'all' ? i < 36 : i === 2)
-
-              return (
-                <div
-                  key={`${entry.team?.id}-${i}`}
-                  className={`flex items-center px-3 py-2.5 border-b border-border last:border-b-0
-                    ${qualify    ? 'border-r-2 border-r-primary'  : ''}
-                    ${mayQualify ? 'border-r-2 border-r-gold'     : ''}
-                  `}
-                >
-                  <span className={`w-7 text-center text-xs font-black ${
-                    i === 0 ? 'text-gold' : i === 1 ? 'text-primary' : i === 2 ? 'text-amber-600' : 'text-muted'
-                  }`}>
-                    {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
-                  </span>
-
-                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                    <span className="text-lg flex-shrink-0">{entry.team?.flag || '🏳️'}</span>
-                    <div className="min-w-0">
-                      <span className="text-xs font-bold text-text truncate block">{entry.team?.name || ''}</span>
-                      {groupFilter === 'all' && (
-                        <span className="text-[9px] text-muted/60">{entry.groupName}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <span className="w-7  text-center text-xs text-muted">{entry.played ?? 0}</span>
-                  <span className={`w-7  text-center text-xs font-bold ${sortBy === 'w'   ? 'text-green'   : 'text-muted'}`}>{entry.won  ?? 0}</span>
-                  <span className="w-7  text-center text-xs text-muted">{entry.draw  ?? 0}</span>
-                  <span className="w-7  text-center text-xs text-muted">{entry.lost  ?? 0}</span>
-                  <span className={`w-10 text-center text-xs font-medium ${gd > 0 ? 'text-green' : gd < 0 ? 'text-live' : 'text-muted'}`}>
-                    {gd > 0 ? `+${gd}` : gd}
-                  </span>
-                  <span className={`w-7  text-center text-xs font-black ${sortBy === 'pts' ? 'text-primary' : 'text-text'}`}>
-                    {entry.pts ?? 0}
-                  </span>
-                </div>
-              )
-            })}
+            {visibleGroups.map(group => (
+              <GroupTable key={group.id} group={group} sortBy={sortBy} />
+            ))}
           </div>
         )}
 
         {/* ── Legend ── */}
         {standings !== null && (
-          <div className="mx-4 mt-3 mb-4 flex flex-wrap items-center gap-3 justify-center">
+          <div className="mx-4 mt-1 mb-4 flex flex-wrap items-center gap-3 justify-center">
             <div className="flex items-center gap-1">
               <div className="w-2.5 h-2.5 rounded-sm bg-primary" />
               <span className="text-[10px] text-muted">يتأهل للدور الثاني</span>
@@ -194,6 +145,88 @@ export default function RankingsPage() {
 
       </div>
       <BottomNav />
+    </div>
+  )
+}
+
+// ─── جدول مجموعة واحدة ────────────────────────────────────────────────────────
+
+function GroupTable({ group, sortBy }) {
+  const [open, setOpen] = useState(true)
+
+  return (
+    <div className="card overflow-hidden">
+      {/* رأس المجموعة */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 border-b border-border active:bg-card-hover transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-sm shadow-primary/30">
+            <span className="text-white font-black text-sm">{group.id}</span>
+          </div>
+          <span className="font-black text-text text-sm">المجموعة {group.id}</span>
+          <span className="text-base">
+            {group.teams.map(t => t.team?.flag || '🏳️').join(' ')}
+          </span>
+        </div>
+        <span className="text-muted text-xs">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <>
+          {/* رأس الجدول */}
+          <div className="flex items-center px-3 py-1.5 bg-card-hover border-b border-border">
+            <span className="w-6 text-[10px] text-muted font-bold text-center">#</span>
+            <span className="flex-1 text-[10px] text-muted font-bold">المنتخب</span>
+            {['ل','ف','ت','خ','ف:ض','ن'].map(h => (
+              <span key={h} className={`text-center text-[10px] font-bold ${
+                (h === 'ن' && sortBy === 'pts') || (h === 'ف' && sortBy === 'w') || (h === 'ف:ض' && sortBy === 'gf')
+                  ? 'text-primary' : 'text-muted'
+              } ${h === 'ف:ض' ? 'w-10' : 'w-7'}`}>{h}</span>
+            ))}
+          </div>
+
+          {/* صفوف المنتخبات */}
+          {group.teams.map((entry, i) => {
+            const gd = (entry.gf ?? 0) - (entry.ga ?? 0)
+            return (
+              <div
+                key={entry.team?.id || i}
+                className={`flex items-center px-3 py-3 border-b border-border last:border-b-0
+                  ${i < 2 ? 'border-r-2 border-r-primary'  : ''}
+                  ${i === 2 ? 'border-r-2 border-r-gold'   : ''}
+                `}
+              >
+                {/* الترتيب */}
+                <span className={`w-6 text-center text-xs font-black ${
+                  i === 0 ? 'text-gold' : i === 1 ? 'text-primary' : 'text-muted'
+                }`}>
+                  {i === 0 ? '🥇' : i === 1 ? '🥈' : i + 1}
+                </span>
+
+                {/* العلم + الاسم */}
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <span className="text-xl flex-shrink-0">{entry.team?.flag || '🏳️'}</span>
+                  <span className="text-sm font-bold text-text truncate">{entry.team?.name || ''}</span>
+                </div>
+
+                {/* الإحصائيات */}
+                <span className="w-7  text-center text-xs text-muted">{entry.played ?? 0}</span>
+                <span className={`w-7  text-center text-xs font-bold ${sortBy === 'w' ? 'text-green' : 'text-muted'}`}>{entry.won ?? 0}</span>
+                <span className="w-7  text-center text-xs text-muted">{entry.draw  ?? 0}</span>
+                <span className="w-7  text-center text-xs text-muted">{entry.lost  ?? 0}</span>
+                <span className={`w-10 text-center text-xs font-medium ${gd > 0 ? 'text-green' : gd < 0 ? 'text-live' : 'text-muted'}`}>
+                  {gd > 0 ? `+${gd}` : gd}
+                </span>
+                <span className={`w-7  text-center text-xs font-black ${sortBy === 'pts' ? 'text-primary' : 'text-text'}`}>
+                  {entry.pts ?? 0}
+                </span>
+              </div>
+            )
+          })}
+        </>
+      )}
     </div>
   )
 }
