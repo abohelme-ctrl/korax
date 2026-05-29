@@ -28,9 +28,10 @@ export default function RankingsPage() {
     })
   }
 
-  // المجموعات المراد عرضها (كل أو مجموعة واحدة)
+  // المجموعات الصحيحة A-L فقط
+  const VALID_GROUPS = new Set('ABCDEFGHIJKL'.split(''))
   const visibleGroups = (standings || [])
-    .filter(g => groupFilter === 'all' || g.id === groupFilter)
+    .filter(g => VALID_GROUPS.has(g.id) && (groupFilter === 'all' || g.id === groupFilter))
     .map(g => ({ ...g, teams: sortTeams(g.teams || []) }))
 
   const started = (standings || []).some(g =>
