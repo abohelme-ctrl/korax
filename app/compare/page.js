@@ -69,13 +69,21 @@ const ALL_TEAMS = [
 ]
 
 // ─── مكوّن بطاقة اختيار المنتخب ──────────────────────────────────────────────
-function TeamPicker({ label, selected, onSelect }) {
-  const [open, setOpen]   = useState(false)
-  const [query, setQuery] = useState('')
+const GROUPS = 'ABCDEFGHIJKL'.split('')
 
-  const filtered = ALL_TEAMS.filter(t =>
-    t.name.includes(query) || t.flag.includes(query)
-  )
+function TeamPicker({ label, selected, onSelect, exclude }) {
+  const [open, setOpen]        = useState(false)
+  const [query, setQuery]      = useState('')
+  const [groupFilter, setGF]   = useState('all')
+
+  const filtered = ALL_TEAMS.filter(t => {
+    if (exclude && t.id === exclude.id) return false
+    if (groupFilter !== 'all' && t.group !== groupFilter) return false
+    if (!query.trim()) return true
+    return t.name.includes(query.trim()) || t.group === query.trim().toUpperCase()
+  })
+
+  function close() { setOpen(false); setQuery(''); setGF('all') }
 
   return (
     <div className="flex-1">
@@ -99,31 +107,61 @@ function TeamPicker({ label, selected, onSelect }) {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={close}>
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div className="relative w-full max-w-[480px] bg-card rounded-t-3xl pb-6" onClick={e => e.stopPropagation()}>
             <div className="w-10 h-1 bg-border rounded-full mx-auto mt-3 mb-3" />
-            <div className="px-4 mb-3">
+
+            {/* بحث */}
+            <div className="px-4 mb-2">
               <input
                 autoFocus
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="ابحث عن منتخب..."
+                placeholder="ابحث باسم المنتخب..."
                 className="w-full bg-bg border border-border rounded-2xl px-4 py-3 text-sm text-text placeholder-muted outline-none focus:border-primary"
                 dir="rtl"
               />
             </div>
-            <div className="overflow-y-auto max-h-72 px-4 space-y-1">
+
+            {/* فلتر المجموعات */}
+            <div className="flex gap-1.5 px-4 overflow-x-auto pb-2 mb-2 hide-scrollbar">
+              <button
+                onClick={() => setGF('all')}
+                className={`flex-shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                  groupFilter === 'all' ? 'bg-primary text-white' : 'bg-bg border border-border text-muted'
+                }`}
+              >
+                الكل
+              </button>
+              {GROUPS.map(g => (
+                <button
+                  key={g}
+                  onClick={() => setGF(g)}
+                  className={`flex-shrink-0 w-7 h-7 rounded-lg text-[10px] font-bold transition-all ${
+                    groupFilter === g ? 'bg-primary text-white' : 'bg-bg border border-border text-muted'
+                  }`}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+
+            {/* قائمة المنتخبات */}
+            <div className="overflow-y-auto max-h-64 px-4 space-y-1">
+              {filtered.length === 0 && (
+                <p className="text-center text-muted text-sm py-6">لا توجد نتائج</p>
+              )}
               {filtered.map(team => (
                 <button
                   key={team.id}
-                  onClick={() => { onSelect(team); setOpen(false); setQuery('') }}
+                  onClick={() => { onSelect(team); close() }}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl active:bg-card-hover hover:bg-card-hover transition-colors"
                 >
                   <span className="text-2xl">{team.flag}</span>
                   <div className="text-right flex-1">
                     <span className="text-sm font-bold text-text">{team.name}</span>
-                    <span className="text-[10px] text-muted block">المجموعة {team.group}</span>
+                    <span className="text-[10px] text-muted block">المجموعة {team.group} · {team.confederation}</span>
                   </div>
                   {team.titles > 0 && (
                     <span className="text-gold text-xs font-black">{team.titles}×🏆</span>
@@ -209,7 +247,7 @@ export default function ComparePage() {
         <div className="card p-4">
           <p className="text-xs text-muted text-center mb-3">اختر منتخبين لمقارنتهما</p>
           <div className="flex items-end gap-3">
-            <TeamPicker label="المنتخب الأول"  selected={teamA} onSelect={setTeamA} />
+            <TeamPicker label="المنتخب الأول"  selected={teamA} onSelect={setTeamA} exclude={teamB} />
 
             <button
               onClick={swapTeams}
@@ -220,7 +258,7 @@ export default function ComparePage() {
               </svg>
             </button>
 
-            <TeamPicker label="المنتخب الثاني" selected={teamB} onSelect={setTeamB} />
+            <TeamPicker label="المنتخب الثاني" selected={teamB} onSelect={setTeamB} exclude={teamA} />
           </div>
         </div>
 
