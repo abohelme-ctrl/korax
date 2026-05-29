@@ -86,7 +86,7 @@ export default function RankingsPage() {
               groupFilter === 'all' ? 'bg-primary text-white' : 'bg-card border border-border text-muted'
             }`}
           >
-            الكل ({allTeams.length})
+            الكل ({(standings || []).reduce((n, g) => n + (g.teams || []).length, 0)})
           </button>
           {(standings || []).map(g => (
             <button
