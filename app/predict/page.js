@@ -433,11 +433,12 @@ export default function PredictPage() {
         )}
 
         {/* ─── Tabs ─── */}
-        <div className="flex gap-2 px-4 pt-4 pb-2">
+        <div className="flex gap-1.5 px-4 pt-4 pb-2">
           {[
             { id: 'awards',   icon: '🏆', label: 'الجوائز',    sub: `${awardDone}/${AWARDS.length}` },
             { id: 'groups',   icon: '📊', label: 'المجموعات',  sub: `${groupDone}/${groupTotal}` },
-            { id: 'mygroups', icon: '👥', label: 'مجموعاتي',   sub: friendGroups.length > 0 ? `${friendGroups.length} مجموعات` : '+ أضف' },
+            { id: 'mygroups', icon: '👥', label: 'مجموعاتي',   sub: friendGroups.length > 0 ? `${friendGroups.length}` : '+ أضف' },
+            { id: 'ranking',  icon: '🌍', label: 'الترتيب',    sub: myRank ? `#${myRank}` : '–' },
           ].map(t => (
             <button
               key={t.id}
@@ -965,6 +966,94 @@ export default function PredictPage() {
 
       </div>
 
+        {/* ══════════════════════════════════════════════════════════════════════
+            التبويب الرابع: الترتيب العام للتوقعات
+        ════════════════════════════════════════════════════════════════════════ */}
+        {tab === 'ranking' && (
+          <div className="px-4 pb-4 space-y-3">
+
+            {!isLoggedIn ? (
+              <Link href="/login" className="card p-5 border-primary/20 bg-primary/5 flex items-center gap-3 active:scale-95 transition-transform block mt-2">
+                <span className="text-3xl">🔐</span>
+                <div>
+                  <p className="font-bold text-text">سجّل دخولك</p>
+                  <p className="text-xs text-muted">لعرض ترتيبك بين جميع المشتركين</p>
+                </div>
+              </Link>
+            ) : leaderboard === null ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <>
+                {/* بطاقة ترتيبي */}
+                {myRank && (
+                  <div className="card p-4 border-primary/30 bg-primary/5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-14 h-14 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center font-black text-primary text-xl">
+                        #{myRank}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-black text-text text-base">ترتيبي العام</p>
+                        <p className="text-xl font-black text-primary mt-0.5">{myPoints ?? 0} <span className="text-sm font-bold text-muted">نقطة</span></p>
+                      </div>
+                      <div className="text-left">
+                        <p className="text-xs text-muted">من</p>
+                        <p className="text-lg font-black text-text">{leaderboard.length}</p>
+                        <p className="text-[10px] text-muted">مشترك</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* منصة التتويج */}
+                {leaderboard.length >= 3 && (
+                  <PredictPodium top3={leaderboard.slice(0, 3)} />
+                )}
+
+                {leaderboard.length === 0 && (
+                  <div className="py-12 text-center text-muted">
+                    <span className="text-4xl block mb-2">🏆</span>
+                    <p className="text-sm">لا يوجد ترتيب بعد — كن أول من يوقّع!</p>
+                  </div>
+                )}
+
+                {/* القائمة الكاملة */}
+                {leaderboard.length > 0 && (
+                  <div className="card overflow-hidden">
+                    {leaderboard.map((e, i) => {
+                      const isMe = e.userId === strapiId
+                      return (
+                        <div key={i} className={`flex items-center gap-3 px-4 py-3 border-b border-border last:border-0 ${isMe ? 'bg-primary/5' : ''}`}>
+                          <span className="text-base w-7 text-center font-black text-muted flex-shrink-0">
+                            {i < 3 ? ['🥇','🥈','🥉'][i] : `#${i + 1}`}
+                          </span>
+                          <div className={`w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold ${isMe ? 'bg-primary text-white' : 'bg-border text-muted-light'}`}>
+                            {getInitials(e.username || e.name || '?')}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1">
+                              <p className={`text-sm font-bold truncate ${isMe ? 'text-primary' : 'text-text'}`}>
+                                {e.username || e.name || 'مستخدم'}
+                              </p>
+                              {isMe && <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">أنا</span>}
+                            </div>
+                            <p className="text-[10px] text-muted">{e.count ?? 0} توقع صحيح</p>
+                          </div>
+                          <div className="text-left flex-shrink-0">
+                            <p className="text-base font-black text-text">{e.points ?? 0}</p>
+                            <p className="text-[10px] text-muted text-center">نقطة</p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
       {/* ─── Toast ─── */}
       {toast && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-card border border-border px-4 py-2 rounded-full text-sm font-bold text-text shadow-xl z-50">
@@ -1177,6 +1266,37 @@ const ShareCard = forwardRef(function ShareCard({ picks }, ref) {
     </div>
   )
 })
+
+// ─── منصة التتويج ─────────────────────────────────────────────────────────────
+
+function PredictPodium({ top3 }) {
+  const order = [top3[1], top3[0], top3[2]] // ثاني، أول، ثالث
+  const heights = ['h-20', 'h-28', 'h-16']
+  const medals  = ['🥈', '🥇', '🥉']
+  const colors  = ['bg-card border-border', 'bg-gold/20 border-gold/40', 'bg-card border-border']
+
+  return (
+    <div className="flex items-end justify-center gap-2 py-2">
+      {order.map((entry, idx) => {
+        if (!entry) return <div key={idx} className="flex-1" />
+        return (
+          <div key={idx} className="flex flex-col items-center gap-1 flex-1">
+            <div className="w-10 h-10 rounded-full bg-border flex items-center justify-center font-bold text-xs text-muted-light">
+              {getInitials(entry.username || entry.name || '?')}
+            </div>
+            <p className="text-[9px] text-muted text-center font-medium truncate w-full px-1">
+              {entry.username || entry.name || 'مستخدم'}
+            </p>
+            <p className="text-sm font-black text-text">{entry.points ?? 0}</p>
+            <div className={`w-full ${heights[idx]} border ${colors[idx]} rounded-t-xl flex items-start justify-center pt-2`}>
+              <span className="text-xl">{medals[idx]}</span>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 // ─── مودال إدخال اسم اللاعب ───────────────────────────────────────────────────
 function PlayerInputModal({ award, current, onSave, onClose }) {
