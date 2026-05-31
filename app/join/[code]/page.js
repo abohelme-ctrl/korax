@@ -25,6 +25,13 @@ export default function JoinGroupPage() {
       return
     }
 
+    // مسجّل دخول لكن بدون strapiToken → خطأ واضح
+    if (!strapiToken) {
+      setError('تعذّر التحقق من حسابك. حاول تسجيل الخروج والدخول مجدداً.')
+      setStatus('error')
+      return
+    }
+
     // مسجّل دخول → انضم تلقائياً (مرة واحدة فقط)
     setDone(true)
     setStatus('joining')
@@ -35,14 +42,14 @@ export default function JoinGroupPage() {
         const name = group?.name || group?.data?.attributes?.name || ''
         setGroupName(name)
         setStatus('success')
-        setTimeout(() => router.replace('/rankings?tab=friends'), 2000)
+        setTimeout(() => router.replace('/predict'), 2000)
       })
       .catch(err => {
         const msg = err?.response?.data?.error?.message || err?.message || ''
         // إذا كان موجوداً بالفعل → نجاح
         if (msg.includes('already') || msg.includes('موجود')) {
           setStatus('success')
-          setTimeout(() => router.replace('/rankings?tab=friends'), 2000)
+          setTimeout(() => router.replace('/predict'), 2000)
         } else {
           setError('الكود غير صحيح أو المجموعة غير موجودة')
           setStatus('error')
@@ -84,10 +91,10 @@ export default function JoinGroupPage() {
               <p className="text-xs text-muted">جاري الانتقال إلى صفحة الترتيب...</p>
             </div>
             <Link
-              href="/rankings"
+              href="/predict"
               className="w-full py-4 rounded-2xl bg-primary font-bold text-white text-center block active:scale-95 transition-transform"
             >
-              عرض الترتيب الآن
+              عرض مجموعاتي الآن
             </Link>
           </div>
         )}
@@ -100,7 +107,7 @@ export default function JoinGroupPage() {
             <p className="text-sm text-muted mb-6">{error}</p>
             <div className="space-y-3">
               <Link
-                href="/rankings"
+                href="/predict"
                 className="w-full py-4 rounded-2xl bg-primary font-bold text-white text-center block active:scale-95 transition-transform"
               >
                 إدخال الكود يدوياً
