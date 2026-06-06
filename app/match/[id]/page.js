@@ -9,6 +9,7 @@ import LiveBadge, { UpcomingBadge, FinishedBadge } from '@/components/match/Live
 import MatchEvents from '@/components/match/MatchEvents'
 import MatchStats from '@/components/match/MatchStats'
 import MatchLineup from '@/components/match/MatchLineup'
+import LivePitch from '@/components/match/LivePitch'
 import { fetchMatchDetails, fetchPrediction, fetchH2H, fetchMatchPlayers, INTERVAL_LIVE, INTERVAL_IDLE } from '@/lib/api-football'
 import { formatMatchTime, getUserTimezone } from '@/lib/utils'
 
@@ -126,6 +127,17 @@ export default function MatchPage() {
           </div>
         )}
 
+        {/* ── الملعب الحي ── */}
+        {(status === 'LIVE' || status === 'FINISHED') && (
+          <LivePitch
+            events={match.events}
+            stats={match.stats}
+            homeTeam={homeTeam}
+            awayTeam={awayTeam}
+            minute={minute}
+          />
+        )}
+
         {/* Predict CTA */}
         {status === 'UPCOMING' && (
           <div className="px-4 mb-4">
@@ -153,7 +165,7 @@ export default function MatchPage() {
 
         {/* Tab content */}
         <div className="animate-in">
-          {tab === 'events'  && <MatchEvents events={match.events} homeTeam={homeTeam} awayTeam={awayTeam} />}
+          {tab === 'events'  && <MatchEvents events={match.events} homeTeam={homeTeam} awayTeam={awayTeam} matchStatus={status} />}
           {tab === 'stats'   && <MatchStats stats={match.stats} homeTeam={homeTeam} awayTeam={awayTeam} />}
           {tab === 'lineups' && <MatchLineup lineups={match.lineups} homeTeam={homeTeam} awayTeam={awayTeam} playerStats={playerStats} />}
           {tab === 'h2h'     && <H2HView matches={h2h} homeTeam={homeTeam} awayTeam={awayTeam} />}
