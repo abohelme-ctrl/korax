@@ -12,6 +12,7 @@ import MatchLineup from '@/components/match/MatchLineup'
 import LivePitch from '@/components/match/LivePitch'
 import { fetchMatchDetails, fetchPrediction, fetchH2H, fetchMatchPlayers, INTERVAL_LIVE, INTERVAL_IDLE } from '@/lib/api-football'
 import { formatMatchTime, getUserTimezone } from '@/lib/utils'
+import { useGoalDetection } from '@/hooks/useGoalDetection'
 
 const TABS = [
   { id: 'events',  label: 'الأحداث'    },
@@ -28,6 +29,16 @@ export default function MatchPage() {
   const [playerStats, setPlayerStats] = useState(null)
   const [tab, setTab]               = useState('events')
   const [loading, setLoading]       = useState(true)
+
+  // كشف الأهداف — يجب قبل أي return شرطي
+  const { goalFlash } = useGoalDetection({
+    events:    match?.events    || [],
+    homeScore: match?.homeScore,
+    awayScore: match?.awayScore,
+    homeTeam:  match?.homeTeam,
+    awayTeam:  match?.awayTeam,
+    status:    match?.status,
+  })
 
   useEffect(() => {
     fetchMatchDetails(id)
@@ -72,6 +83,9 @@ export default function MatchPage() {
   return (
     <div>
       <Header back title={`${homeTeam.name} vs ${awayTeam.name}`} />
+
+      {/* ── إشعار الهدف ── */}
+      {goalFlash && <GoalToast flash={goalFlash} />}
 
       <div className="page-content">
 
@@ -298,6 +312,20 @@ function FormBadges({ label, form, right }) {
             {l}
           </span>
         ))}
+      </div>
+    </div>
+  )
+}
+
+function GoalToast({ flash }) {
+  return (
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-4 duration-300">
+      <div className="bg-green text-white px-5 py-3 rounded-2xl shadow-2xl shadow-green/40 flex items-center gap-3 max-w-xs">
+        <span className="text-3xl animate-bounce">⚽</span>
+        <div>
+          <p className="font-black text-sm">هدف! {flash.team?.flag} {flash.team?.name}</p>
+          <p className="text-xs text-white/80">{flash.player} — {flash.minute}' | {flash.score}</p>
+        </div>
       </div>
     </div>
   )
