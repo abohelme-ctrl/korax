@@ -178,20 +178,25 @@ export default function PredictPage() {
 
   async function handleCreateGroup() {
     if (!newGroupName.trim()) return
+    if (!isLoggedIn || !strapiToken) {
+      showToast('يجب تسجيل الدخول أولاً')
+      return
+    }
     setCreating(true)
     try {
-      const group = await createGroup(newGroupName.trim())
+      // نضمن وجود الـ token قبل الطلب
+      setUserToken(strapiToken)
+      const res   = await createGroup(newGroupName.trim())
+      // Strapi يرجع البيانات إما مباشرة أو داخل data
+      const group = res?.data ?? res
+      if (!group?.code) throw new Error('no code')
       const updated = [...friendGroups, group]
       setFriendGroups(updated); saveLocalGroups(updated)
       setActiveGroup(group.id)
       setNewGroupName(''); setShowCreate(false)
-    } catch {
-      const code  = generateGroupCode()
-      const group = { id: `g_${Date.now()}`, name: newGroupName.trim(), code, members: [] }
-      const updated = [...friendGroups, group]
-      setFriendGroups(updated); saveLocalGroups(updated)
-      setActiveGroup(group.id)
-      setNewGroupName(''); setShowCreate(false)
+      showToast('تم إنشاء المجموعة ✓')
+    } catch (err) {
+      showToast('تعذّر إنشاء المجموعة — تحقق من الاتصال')
     } finally { setCreating(false) }
   }
 
@@ -212,13 +217,15 @@ export default function PredictPage() {
   }
 
   async function handleShareGroup(group) {
-    const url  = `${window.location.origin}/join/${group.code}`
-    const text = `انضم لمجموعتي "${group.name}" في KoraX!\nالكود: ${group.code}\n${url}`
+    const code = group.code || group.attributes?.code || ''
+    if (!code) { showToast('الكود غير متوفر'); return }
+    const url  = `https://korax.live/join/${code}`
+    const text = `⚽ انضم لمجموعتي "${group.name || group.attributes?.name}" في KoraX!\n🔑 الكود: ${code}\n🔗 ${url}`
     if (navigator.share) {
-      await navigator.share({ title: 'KoraX', text }).catch(() => {})
+      await navigator.share({ title: 'KoraX — دعوة مجموعة', text, url }).catch(() => {})
     } else {
       navigator.clipboard.writeText(text)
-      setCopied(true); setTimeout(() => setCopied(false), 2000)
+      showToast('تم نسخ رابط الدعوة ✓')
     }
   }
 
@@ -833,9 +840,9 @@ export default function PredictPage() {
                             {/* كود الانضمام */}
                             <div className="flex items-center gap-2 bg-bg rounded-xl px-3 py-2 mt-2">
                               <span className="text-xs text-muted">كود:</span>
-                              <span className="font-black text-primary tracking-widest text-sm flex-1">{group.code}</span>
+                              <span className="font-black text-primary tracking-widest text-sm flex-1">{group.code || group.attributes?.code}</span>
                               <button
-                                onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/join/${group.code}`); showToast('تم نسخ الرابط ✓') }}
+                                onClick={() => { const c = group.code || group.attributes?.code || ''; navigator.clipboard.writeText(`https://korax.live/join/${c}`); showToast('تم نسخ الرابط ✓') }}
                                 className="text-[10px] text-muted bg-card border border-border px-2 py-1 rounded-lg active:scale-95 transition-transform"
                               >
                                 نسخ الرابط
