@@ -1,9 +1,73 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import Header from '@/components/layout/Header'
 import BottomNav from '@/components/layout/BottomNav'
+import { fetchTeamSquad } from '@/lib/api-football'
+
+// ── خريطة: ID الداخلي للتطبيق → ID الفعلي في API-Football ─────────────────────
+const APP_TO_API_ID = {
+  '16':   16,    // المكسيك
+  '1531': 1531,  // جنوب أفريقيا
+  '149':  17,    // كوريا الجنوبية
+  '798':  770,   // التشيك
+  '101':  5529,  // كندا
+  '776':  1113,  // البوسنة
+  '164':  1569,  // قطر
+  '15':   15,    // سويسرا
+  '6':    6,     // البرازيل
+  '32':   31,    // المغرب
+  '507':  2386,  // هايتي
+  '1108': 1108,  // اسكتلندا
+  '779':  2380,  // باراغواي
+  '25':   20,    // أستراليا
+  '741':  777,   // تركيا
+  '3':    25,    // ألمانيا
+  '1532': 5530,  // كوراساو
+  '31':   1501,  // ساحل العاج
+  '57':   null,  // بوليفيا (ليست في كأس العالم 2026)
+  '1':    1118,  // هولندا
+  '2601': 12,    // اليابان
+  '744':  5,     // السويد
+  '4601': 28,    // تونس
+  '26':   26,    // الأرجنتين
+  '9':    9,     // إسبانيا
+  '1529': null,  // الكاميرون (ليست في كأس العالم 2026)
+  '23':   7,     // أوروغواي
+  '66':   null,  // رومانيا (ليست في كأس العالم 2026)
+  '2':    2,     // فرنسا
+  '43':   null,  // ألبانيا (ليست في كأس العالم 2026)
+  '50':   null,  // غينيا (ليست في كأس العالم 2026)
+  '27':   27,    // البرتغال
+  '141':  23,    // السعودية
+  '60':   2382,  // الإكوادور
+  '110':  null,  // زيمبابوي (ليست في كأس العالم 2026)
+  '10':   10,    // إنجلترا
+  '3001': 3,     // كرواتيا
+  '85':   null,  // الدنمارك (ليست في كأس العالم 2026)
+  '1530': null,  // فلسطين (ليست في كأس العالم 2026)
+  '36':   32,    // مصر
+  '33':   13,    // السنغال
+  '96':   1532,  // الجزائر
+  '48':   1,     // بلجيكا
+  '46':   1532,  // الجزائر (alias)
+  '4':    1,     // بلجيكا (alias)
+  '13':   7,     // أوروغواي (alias)
+  '66':   22,    // إيران
+  '1537': 4673,  // نيوزيلندا
+  '1533': 1533,  // الرأس الأخضر
+  '56':   8,     // كولومبيا
+  '1534': 1568,  // أوزبكستان
+  '1535': 1508,  // الكونغو الديمقراطية
+  '755':  1090,  // النرويج
+  '796':  1567,  // العراق
+  '775':  775,   // النمسا
+  '765':  1548,  // الأردن
+  '14':   1504,  // غانا
+  '1536': 11,    // بنما
+}
 
 // ─── بيانات جميع المنتخبات ────────────────────────────────────────────────────
 const TEAMS_DATA = {
@@ -808,6 +872,18 @@ export default function NationPage() {
   const team    = getTeamData(id)
   const group   = team ? getGroupForTeam(id, team.name) : null
 
+  const [squad,        setSquad]        = useState(null)   // null = جاري التحميل
+  const [squadLoading, setSquadLoading] = useState(true)
+
+  useEffect(() => {
+    const apiId = APP_TO_API_ID[id]
+    if (!apiId) { setSquadLoading(false); return }
+    fetchTeamSquad(apiId)
+      .then(data => setSquad(data || []))
+      .catch(() => setSquad([]))
+      .finally(() => setSquadLoading(false))
+  }, [id])
+
   if (!team) {
     return (
       <div>
@@ -898,8 +974,58 @@ export default function NationPage() {
             </div>
           )}
 
-          {/* ─── أبرز اللاعبين ─── */}
-          {team.players?.length > 0 && (
+          {/* ─── القائمة الرسمية من API ─── */}
+          {squadLoading && (
+            <div className="card p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span>👥</span>
+                <span className="font-black text-text text-sm">القائمة الرسمية</span>
+              </div>
+              <div className="space-y-2">
+                {[1,2,3,4].map(i => (
+                  <div key={i} className="h-8 bg-card-hover rounded-xl animate-pulse" />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!squadLoading && squad && squad.length > 0 && (
+            <div className="card p-4">
+              <h2 className="font-black text-text text-sm mb-3 flex items-center gap-2">
+                <span>👥</span> القائمة الرسمية
+                <span className="text-[10px] text-muted font-normal mr-auto">{squad.length} لاعب</span>
+              </h2>
+              {['حارس مرمى','مدافع','وسط','مهاجم'].map(pos => {
+                const group = squad.filter(p => p.pos === pos)
+                if (group.length === 0) return null
+                const posIcons = { 'حارس مرمى':'🧤', 'مدافع':'🛡️', 'وسط':'⚙️', 'مهاجم':'⚡' }
+                return (
+                  <div key={pos} className="mb-3 last:mb-0">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <span className="text-xs">{posIcons[pos]}</span>
+                      <span className="text-[10px] font-black text-muted uppercase">{pos}</span>
+                      <span className="text-[9px] text-muted">({group.length})</span>
+                    </div>
+                    <div className="space-y-1">
+                      {group.map((p, i) => (
+                        <div key={i} className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-card-hover transition-colors">
+                          <span className="text-[10px] font-black text-muted w-5 text-center flex-shrink-0">
+                            {p.number || '—'}
+                          </span>
+                          <span className="text-xs font-medium text-text flex-1 truncate">{p.name}</span>
+                          {p.age && (
+                            <span className="text-[9px] text-muted flex-shrink-0">{p.age}س</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {!squadLoading && (!squad || squad.length === 0) && team.players?.length > 0 && (
             <div className="card p-4">
               <h2 className="font-black text-text text-sm mb-3 flex items-center gap-2">
                 <span>⚽</span> أبرز اللاعبين

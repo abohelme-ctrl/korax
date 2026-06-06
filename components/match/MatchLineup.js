@@ -40,7 +40,7 @@ export default function MatchLineup({ lineups, homeTeam, awayTeam, playerStats }
         />
       </div>
 
-      {/* ── Player Lists ── */}
+      {/* ── الأساسيون ── */}
       <div className="grid grid-cols-2 gap-2 px-4">
         <PlayerColumn
           team={homeTeam}
@@ -55,6 +55,33 @@ export default function MatchLineup({ lineups, homeTeam, awayTeam, playerStats }
           align="left"
         />
       </div>
+
+      {/* ── الدكة (الاحتياطيون) ── */}
+      {(home.bench?.length > 0 || away.bench?.length > 0) && (
+        <div className="px-4 mt-3 pb-2">
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <span className="text-sm">🪑</span>
+            <span className="text-xs font-black text-muted uppercase tracking-wide">الاحتياطيون</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <PlayerColumn
+              team={homeTeam}
+              players={home.bench || []}
+              playerStats={playerStats?.[homeTeam?.id]}
+              align="right"
+              isBench
+            />
+            <PlayerColumn
+              team={awayTeam}
+              players={away.bench || []}
+              playerStats={playerStats?.[awayTeam?.id]}
+              align="left"
+              isBench
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -185,7 +212,7 @@ function PlayerDot({ x, y, player, color }) {
 
 // ─── Player Column ──────────────────────────────────────────────────────────────
 
-function PlayerColumn({ team, players, playerStats, align }) {
+function PlayerColumn({ team, players, playerStats, align, isBench }) {
   const statsMap = {}
   if (playerStats) {
     for (const s of playerStats) statsMap[s.id] = s
@@ -193,10 +220,12 @@ function PlayerColumn({ team, players, playerStats, align }) {
 
   return (
     <div>
-      <div className={`flex items-center gap-1 mb-2 ${align === 'right' ? '' : 'flex-row-reverse'}`}>
-        <span className="text-base">{team?.flag}</span>
-        <span className="text-[10px] font-bold text-muted truncate">{team?.name}</span>
-      </div>
+      {!isBench && (
+        <div className={`flex items-center gap-1 mb-2 ${align === 'right' ? '' : 'flex-row-reverse'}`}>
+          <span className="text-base">{team?.flag}</span>
+          <span className="text-[10px] font-bold text-muted truncate">{team?.name}</span>
+        </div>
+      )}
       <div className="space-y-0.5">
         {players.map((player, i) => (
           <PlayerRow
@@ -204,6 +233,7 @@ function PlayerColumn({ team, players, playerStats, align }) {
             player={player}
             stats={statsMap[player.id]}
             align={align}
+            isBench={isBench}
           />
         ))}
       </div>
@@ -211,7 +241,7 @@ function PlayerColumn({ team, players, playerStats, align }) {
   )
 }
 
-function PlayerRow({ player, stats, align }) {
+function PlayerRow({ player, stats, align, isBench }) {
   const rating = stats?.rating
   const ratingColor = !rating      ? 'text-muted bg-card'
     : rating >= 8                  ? 'text-gold   bg-gold/10'
@@ -222,7 +252,7 @@ function PlayerRow({ player, stats, align }) {
   const isRight = align === 'right'
 
   return (
-    <div className={`flex items-center gap-1 py-1.5 px-1.5 rounded-xl hover:bg-card transition-colors ${isRight ? 'flex-row' : 'flex-row-reverse'}`}>
+    <div className={`flex items-center gap-1 py-1.5 px-1.5 rounded-xl hover:bg-card transition-colors ${isRight ? 'flex-row' : 'flex-row-reverse'} ${isBench ? 'opacity-75' : ''}`}>
 
       {/* رقم اللاعب */}
       <span className="text-[9px] font-black text-muted w-4 text-center flex-shrink-0">
