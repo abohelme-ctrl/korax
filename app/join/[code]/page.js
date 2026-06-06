@@ -20,14 +20,14 @@ export default function JoinGroupPage() {
     if (isLoading || !code || done) return
 
     // غير مسجّل → شاشة الدخول
-    if (!isLoggedIn || !strapiToken) {
+    if (!isLoggedIn) {
       setStatus('login')
       return
     }
 
     // مسجّل دخول لكن بدون strapiToken → خطأ واضح
     if (!strapiToken) {
-      setError('تعذّر التحقق من حسابك. حاول تسجيل الخروج والدخول مجدداً.')
+      setError('تعذّر التحقق من حسابك. سجّل الخروج وأعد الدخول مجدداً.')
       setStatus('error')
       return
     }
@@ -45,13 +45,23 @@ export default function JoinGroupPage() {
         setTimeout(() => router.replace('/predict'), 2000)
       })
       .catch(err => {
-        const msg = err?.response?.data?.error?.message || err?.message || ''
-        // إذا كان موجوداً بالفعل → نجاح
-        if (msg.includes('already') || msg.includes('موجود')) {
+        const status = err?.response?.status
+        const msg    = err?.response?.data?.error?.message || err?.message || ''
+        // عضو بالفعل → نجاح
+        if (msg.includes('already') || msg.includes('موجود') || msg.includes('عضو')) {
           setStatus('success')
           setTimeout(() => router.replace('/predict'), 2000)
+        } else if (status === 401 || status === 403) {
+          setError('انتهت صلاحية جلستك. سجّل الخروج وأعد الدخول.')
+          setStatus('error')
+        } else if (status === 404 || msg.includes('غير صحيح')) {
+          setError('الكود غير صحيح أو انتهت صلاحية المجموعة.')
+          setStatus('error')
+        } else if (!status) {
+          setError('تعذّر الاتصال بالخادم. تحقق من الاتصال بالإنترنت.')
+          setStatus('error')
         } else {
-          setError('الكود غير صحيح أو المجموعة غير موجودة')
+          setError(`حدث خطأ (${status}). حاول مجدداً.`)
           setStatus('error')
         }
       })
