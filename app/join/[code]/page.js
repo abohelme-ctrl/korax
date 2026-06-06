@@ -9,12 +9,13 @@ import Link from 'next/link'
 export default function JoinGroupPage() {
   const { code }   = useParams()
   const router     = useRouter()
-  const { isLoggedIn, isLoading, strapiToken } = useAuth()
+  const { isLoggedIn, isLoading, strapiToken, logout } = useAuth()
 
   const [status,    setStatus]    = useState('loading')
   const [groupName, setGroupName] = useState('')
   const [error,     setError]     = useState('')
   const [done,      setDone]      = useState(false) // منع التكرار
+  const [needsReauth, setNeedsReauth] = useState(false)
 
   useEffect(() => {
     if (isLoading || !code || done) return
@@ -27,7 +28,8 @@ export default function JoinGroupPage() {
 
     // مسجّل دخول لكن بدون strapiToken → خطأ واضح
     if (!strapiToken) {
-      setError('تعذّر التحقق من حسابك. سجّل الخروج وأعد الدخول مجدداً.')
+      setError('تعذّر التحقق من حسابك. يجب إعادة تسجيل الدخول.')
+      setNeedsReauth(true)
       setStatus('error')
       return
     }
@@ -116,12 +118,21 @@ export default function JoinGroupPage() {
             <h1 className="font-black text-xl text-text mb-2">تعذّر الانضمام</h1>
             <p className="text-sm text-muted mb-6">{error}</p>
             <div className="space-y-3">
-              <Link
-                href="/predict"
-                className="w-full py-4 rounded-2xl bg-primary font-bold text-white text-center block active:scale-95 transition-transform"
-              >
-                إدخال الكود يدوياً
-              </Link>
+              {needsReauth ? (
+                <button
+                  onClick={() => logout(`/join/${code}`)}
+                  className="w-full py-4 rounded-2xl bg-primary font-bold text-white text-center block active:scale-95 transition-transform"
+                >
+                  تسجيل الخروج وإعادة الدخول
+                </button>
+              ) : (
+                <Link
+                  href="/predict"
+                  className="w-full py-4 rounded-2xl bg-primary font-bold text-white text-center block active:scale-95 transition-transform"
+                >
+                  إدخال الكود يدوياً
+                </Link>
+              )}
               <Link
                 href="/"
                 className="w-full py-4 rounded-2xl bg-card border border-border font-bold text-muted text-center block active:scale-95 transition-transform"

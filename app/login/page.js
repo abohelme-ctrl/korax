@@ -12,6 +12,7 @@ function LoginContent() {
 
   const searchParams  = useSearchParams()
   const redirectTo    = searchParams.get('redirect') || '/'
+  const authError     = searchParams.get('error')
 
   async function handleSocial(provider) {
     setLoading(provider)
@@ -36,6 +37,13 @@ function LoginContent() {
         <h1 className="text-3xl font-black text-text">KoraX</h1>
         <p className="text-muted text-sm mt-1">توقع النتائج &nbsp;•&nbsp; ابنِ فريقك &nbsp;•&nbsp; تنافس</p>
       </div>
+
+      {/* Auth error message */}
+      {authError === 'StrapiAuthFailed' && (
+        <div className="w-full bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-3 mb-4 text-center">
+          <p className="text-sm text-red-400">تعذّر ربط حسابك بالنظام. يرجى المحاولة مجدداً.</p>
+        </div>
+      )}
 
       {/* Social login */}
       <div className="w-full space-y-3 mb-6">
