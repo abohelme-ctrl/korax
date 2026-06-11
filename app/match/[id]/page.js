@@ -44,10 +44,11 @@ export default function MatchPage() {
     fetchMatchDetails(id)
       .then(m => {
         setMatch(m)
+        if (!m) return  // المباراة غير موجودة أو خطأ في الجلب
         // جلب كل البيانات الإضافية بالتوازي
         Promise.allSettled([
           fetchPrediction(id),
-          fetchH2H(m.homeTeam.id, m.awayTeam.id),
+          fetchH2H(m.homeTeam?.id, m.awayTeam?.id),
           fetchMatchPlayers(id),
         ]).then(([predR, h2hR, playersR]) => {
           if (predR.status    === 'fulfilled') setAiPred(predR.value)
@@ -55,6 +56,7 @@ export default function MatchPage() {
           if (playersR.status === 'fulfilled') setPlayerStats(playersR.value)
         })
       })
+      .catch(() => setMatch(null))
       .finally(() => setLoading(false))
   }, [id])
 
@@ -63,11 +65,16 @@ export default function MatchPage() {
     if (!match) return
     let timeoutId
     function scheduleNext(current) {
+      if (!current) return
       const delay = current.status === 'LIVE' ? INTERVAL_LIVE : INTERVAL_IDLE
       timeoutId = setTimeout(async () => {
-        const updated = await fetchMatchDetails(id)
-        setMatch(updated)
-        scheduleNext(updated)
+        try {
+          const updated = await fetchMatchDetails(id)
+          if (updated) setMatch(updated)
+          scheduleNext(updated)
+        } catch {
+          scheduleNext(current)  // retry later
+        }
       }, delay)
     }
     scheduleNext(match)

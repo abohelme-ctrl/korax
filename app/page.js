@@ -31,9 +31,17 @@ const FIRST_MATCHES = [
   { id: 1489377, date: 'الاثنين 15 يونيو', time: '10:00 م', home: 'بلجيكا',            homeFlag: '🇧🇪', away: 'مصر',             awayFlag: '🇪🇬', city: 'أمريكا'       },
 ]
 
+const TABS = [
+  { id: 'all',      label: 'الكل'     },
+  { id: 'LIVE',     label: 'مباشر'    },
+  { id: 'UPCOMING', label: 'القادمة'  },
+  { id: 'FINISHED', label: 'المنتهية' },
+]
+
 export default function HomePage() {
   const [matches, setMatches]         = useState([])
   const [allFixtures, setAllFixtures] = useState(FIRST_MATCHES)
+  const [activeTab, setActiveTab]     = useState('all')
   const [loading, setLoading]         = useState(true)
   const [loadingAll, setLoadingAll]   = useState(false)
   const [countdown, setCountdown]     = useState(null)
@@ -135,22 +143,45 @@ export default function HomePage() {
           </Link>
         </div>
 
-        {/* ── Live badge ── */}
-        {started && liveCount > 0 && (
-          <div className="mx-4 mt-3 mb-1 flex items-center gap-2 bg-live/10 border border-live/30 rounded-xl px-3 py-2">
-            <span className="w-2 h-2 rounded-full bg-live animate-pulse" />
-            <span className="text-xs font-bold text-live">{liveCount} مباراة مباشرة الآن</span>
-          </div>
-        )}
+        {/* ── Tab bar ── */}
+        <div className="tab-bar pt-2 pb-3">
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`tab-item ${activeTab === tab.id ? 'active' : ''}`}
+            >
+              {tab.label}
+              {tab.id === 'LIVE' && liveCount > 0 && (
+                <span className="mr-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-live text-white text-[9px] font-black">
+                  {liveCount}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
 
-        {/* ── جدول كل المباريات ── */}
-        {loadingAll && (
-          <div className="flex items-center justify-center py-4 gap-2">
-            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            <span className="text-xs text-muted">جاري تحميل الجدول...</span>
+        {/* ── المحتوى حسب التبويب ── */}
+        {activeTab === 'all' ? (
+          <>
+            {loadingAll && (
+              <div className="flex items-center justify-center py-4 gap-2">
+                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs text-muted">جاري تحميل الجدول...</span>
+              </div>
+            )}
+            <SchedulePreview matches={mergedFixtures} />
+          </>
+        ) : (
+          <div className="px-4 space-y-3 pb-4">
+            {loading ? <LoadingSkeleton /> : (() => {
+              const filtered = matches.filter(m => m.status === activeTab)
+              return filtered.length === 0
+                ? <EmptyState tab={activeTab} />
+                : filtered.map(m => <MatchCard key={m.id} match={m} />)
+            })()}
           </div>
         )}
-        <SchedulePreview matches={mergedFixtures} />
 
       </div>
 
