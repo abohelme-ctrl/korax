@@ -31,17 +31,9 @@ const FIRST_MATCHES = [
   { id: 1489377, date: 'الاثنين 15 يونيو', time: '10:00 م', home: 'بلجيكا',            homeFlag: '🇧🇪', away: 'مصر',             awayFlag: '🇪🇬', city: 'أمريكا'       },
 ]
 
-const TABS = [
-  { id: 'all',      label: 'الكل'     },
-  { id: 'LIVE',     label: 'مباشر'    },
-  { id: 'UPCOMING', label: 'القادمة'  },
-  { id: 'FINISHED', label: 'المنتهية' },
-]
-
 export default function HomePage() {
   const [matches, setMatches]         = useState([])
   const [allFixtures, setAllFixtures] = useState(FIRST_MATCHES)
-  const [activeTab, setActiveTab]     = useState('all')
   const [loading, setLoading]         = useState(true)
   const [loadingAll, setLoadingAll]   = useState(false)
   const [countdown, setCountdown]     = useState(null)
@@ -59,9 +51,9 @@ export default function HomePage() {
       .finally(() => setLoading(false))
   }, [])
 
-  // قبل البطولة: جلب كل المباريات المجدولة
+  // جلب كل مباريات البطولة دائماً
   useEffect(() => {
-    if (countdown !== null && countdown.total > 0) {
+    if (countdown !== null) {
       setLoadingAll(true)
       fetchAllFixtures()
         .then(fixtures => {
@@ -88,9 +80,14 @@ export default function HomePage() {
     return () => clearTimeout(timeoutId)
   }, [matches])
 
-  const filtered   = activeTab === 'all' ? matches : matches.filter(m => m.status === activeTab)
   const liveCount  = matches.filter(m => m.status === 'LIVE').length
   const started    = countdown ? countdown.total <= 0 : false
+
+  // دمج بيانات اليوم الحية مع جدول المباريات الكامل
+  const mergedFixtures = allFixtures.map(f => {
+    const live = matches.find(m => m.id === f.id)
+    return live ? { ...f, ...live, date: f.date, time: f.time } : f
+  })
 
   return (
     <div>
@@ -138,45 +135,22 @@ export default function HomePage() {
           </Link>
         </div>
 
-        {/* ── Today's matches or schedule ── */}
-        {!started && loadingAll && (
+        {/* ── Live badge ── */}
+        {started && liveCount > 0 && (
+          <div className="mx-4 mt-3 mb-1 flex items-center gap-2 bg-live/10 border border-live/30 rounded-xl px-3 py-2">
+            <span className="w-2 h-2 rounded-full bg-live animate-pulse" />
+            <span className="text-xs font-bold text-live">{liveCount} مباراة مباشرة الآن</span>
+          </div>
+        )}
+
+        {/* ── جدول كل المباريات ── */}
+        {loadingAll && (
           <div className="flex items-center justify-center py-4 gap-2">
             <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             <span className="text-xs text-muted">جاري تحميل الجدول...</span>
           </div>
         )}
-        {started ? (
-          <>
-            {/* Tab bar */}
-            <div className="tab-bar pt-2 pb-3">
-              {TABS.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`tab-item ${activeTab === tab.id ? 'active' : ''}`}
-                >
-                  {tab.label}
-                  {tab.id === 'LIVE' && liveCount > 0 && (
-                    <span className="mr-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-live text-white text-[9px] font-black">
-                      {liveCount}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            <div className="px-4 space-y-3 pb-4">
-              {loading ? <LoadingSkeleton /> : filtered.length === 0 ? (
-                <EmptyState tab={activeTab} />
-              ) : (
-                filtered.map(m => <MatchCard key={m.id} match={m} />)
-              )}
-            </div>
-          </>
-        ) : (
-          /* Schedule before tournament starts */
-          <SchedulePreview matches={allFixtures} />
-        )}
+        <SchedulePreview matches={mergedFixtures} />
 
       </div>
 
@@ -390,14 +364,36 @@ function ScheduleMatchRow({ match }) {
     ? new Date(match.startTime).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })
     : '')
 
+  const isLive     = match.status === 'LIVE'
+  const isFinished = match.status === 'FINISHED'
+  const hasScore   = isLive || isFinished
+  const homeScore  = match.homeScore ?? match.score?.home ?? null
+  const awayScore  = match.awayScore ?? match.score?.away ?? null
+
   return (
-    <div className="card p-3">
+    <div className={`card p-3 ${isLive ? 'border-live/40' : ''}`}>
       <div className="flex items-center gap-3">
 
-        {/* Time */}
+        {/* Time / Status */}
         <div className="flex flex-col items-center min-w-[44px]">
-          <span className="text-xs font-black text-primary">{timeStr}</span>
-          <span className="text-[9px] text-muted">KSA</span>
+          {isLive ? (
+            <>
+              <span className="text-[9px] font-black text-live flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-live animate-pulse inline-block" />
+                مباشر
+              </span>
+              {match.elapsed && <span className="text-[9px] text-live">{match.elapsed}'</span>}
+            </>
+          ) : isFinished ? (
+            <>
+              <span className="text-[9px] font-black text-muted">انتهت</span>
+            </>
+          ) : (
+            <>
+              <span className="text-xs font-black text-primary">{timeStr}</span>
+              <span className="text-[9px] text-muted">KSA</span>
+            </>
+          )}
         </div>
 
         <div className="w-px h-8 bg-border" />
@@ -408,9 +404,15 @@ function ScheduleMatchRow({ match }) {
           <span className="text-[10px] font-bold text-text text-center leading-tight">{homeName}</span>
         </div>
 
-        {/* VS */}
+        {/* Score / VS */}
         <div className="flex flex-col items-center gap-0.5 px-1">
-          <span className="text-xs font-black text-muted">VS</span>
+          {hasScore && homeScore !== null ? (
+            <span className={`text-base font-black tabular-nums ${isLive ? 'text-live' : 'text-text'}`}>
+              {homeScore} - {awayScore}
+            </span>
+          ) : (
+            <span className="text-xs font-black text-muted">VS</span>
+          )}
           <span className="text-[8px] text-muted/60">{city}</span>
         </div>
 
