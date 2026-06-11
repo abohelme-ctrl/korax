@@ -91,9 +91,9 @@ export default function HomePage() {
   const liveCount  = matches.filter(m => m.status === 'LIVE').length
   const started    = countdown ? countdown.total <= 0 : false
 
-  // دمج بيانات اليوم الحية مع جدول المباريات الكامل
+  // دمج بيانات اليوم الحية مع جدول المباريات الكامل (مقارنة string لتجنب number/string mismatch)
   const mergedFixtures = allFixtures.map(f => {
-    const live = matches.find(m => m.id === f.id)
+    const live = matches.find(m => String(m.id) === String(f.id))
     return live ? { ...f, ...live, date: f.date, time: f.time } : f
   })
 
@@ -413,12 +413,12 @@ function ScheduleMatchRow({ match }) {
                 <span className="w-1.5 h-1.5 rounded-full bg-live animate-pulse inline-block" />
                 مباشر
               </span>
-              {match.elapsed && <span className="text-[9px] text-live">{match.elapsed}'</span>}
+              <span className="text-xs font-black text-live">
+                {match.minute || match.elapsed ? `${match.minute || match.elapsed}'` : '—'}
+              </span>
             </>
           ) : isFinished ? (
-            <>
-              <span className="text-[9px] font-black text-muted">انتهت</span>
-            </>
+            <span className="text-[9px] font-black text-muted">انتهت</span>
           ) : (
             <>
               <span className="text-xs font-black text-primary">{timeStr}</span>
@@ -444,7 +444,7 @@ function ScheduleMatchRow({ match }) {
           ) : (
             <span className="text-xs font-black text-muted">VS</span>
           )}
-          <span className="text-[8px] text-muted/60">{city}</span>
+          {city && <span className="text-[8px] text-muted/60">{city}</span>}
         </div>
 
         {/* Away */}
@@ -454,7 +454,7 @@ function ScheduleMatchRow({ match }) {
         </div>
       </div>
 
-      {/* زر التوقع */}
+      {/* أزرار */}
       <div className="mt-2.5 pt-2.5 border-t border-border flex gap-2">
         {match.id ? (
           <>
@@ -464,12 +464,14 @@ function ScheduleMatchRow({ match }) {
             >
               📋 التفاصيل
             </Link>
-            <Link
-              href={`/predict/${match.id}`}
-              className="flex items-center justify-center gap-1 flex-1 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-xs font-bold active:scale-95 transition-transform"
-            >
-              ⚽ توقع
-            </Link>
+            {!isLive && !isFinished && (
+              <Link
+                href={`/predict/${match.id}`}
+                className="flex items-center justify-center gap-1 flex-1 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-xs font-bold active:scale-95 transition-transform"
+              >
+                ⚽ توقع
+              </Link>
+            )}
           </>
         ) : (
           <span className="flex items-center justify-center gap-1.5 w-full py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-xs font-bold">
