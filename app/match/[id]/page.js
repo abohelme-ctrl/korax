@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Component } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import Header from '@/components/layout/Header'
@@ -21,7 +21,7 @@ const TABS = [
   { id: 'h2h',     label: 'التاريخ'    },
 ]
 
-export default function MatchPage() {
+function MatchPageInner() {
   const { id }    = useParams()
   const [match, setMatch]           = useState(null)
   const [aiPrediction, setAiPred]   = useState(null)
@@ -199,6 +199,14 @@ export default function MatchPage() {
   )
 }
 
+export default function MatchPage(props) {
+  return (
+    <MatchErrorBoundary>
+      <MatchPageInner {...props} />
+    </MatchErrorBoundary>
+  )
+}
+
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
 function TeamBlock({ team, reverse }) {
@@ -354,4 +362,25 @@ function NotFound() {
       <Link href="/" className="text-primary font-bold">العودة للرئيسية</Link>
     </div>
   )
+}
+
+// Error boundary لالتقاط أخطاء الرسم وعرضها بدل "application error"
+export class MatchErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null } }
+  static getDerivedStateFromError(error) { return { error } }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-6">
+          <span className="text-5xl">⚠️</span>
+          <p className="text-sm font-bold text-live text-center">حدث خطأ في تحميل المباراة</p>
+          <p className="text-xs text-muted text-center font-mono bg-card p-3 rounded-xl max-w-xs break-all">
+            {this.state.error?.message || 'unknown error'}
+          </p>
+          <Link href="/" className="text-primary font-bold text-sm">العودة للرئيسية</Link>
+        </div>
+      )
+    }
+    return this.props.children
+  }
 }
