@@ -31,6 +31,7 @@ export default function PredictPage() {
     fetchMatchDetails(id)
       .then(m => {
         setMatch(m)
+        if (!m) return
         if (m.status !== 'UPCOMING') router.replace(`/match/${id}`)
         // قفل تلقائي قبل ساعة من الكيك أوف
         if (m.startTime) {
@@ -39,6 +40,7 @@ export default function PredictPage() {
           if (now >= kickoff - 60 * 60 * 1000) setIsLocked(true)
         }
       })
+      .catch(() => {})
       .finally(() => setLoadingMatch(false))
   }, [id, router])
 
