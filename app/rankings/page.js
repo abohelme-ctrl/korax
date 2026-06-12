@@ -5,29 +5,54 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import Header from '@/components/layout/Header'
 import BottomNav from '@/components/layout/BottomNav'
-import { fetchStandings } from '@/lib/api-football'
+import { fetchAllFixtures } from '@/lib/api-football'
 import { GROUPS } from '@/lib/mock-data'
 
-// تحويل GROUPS إلى الشكل المطلوب للصفحة
-function groupsAsStandings() {
-  return GROUPS.map(g => ({
-    id: g.id,
-    name: g.name,
-    teams: g.teams.map(e => ({
-      team:   { id: e.team.id, name: e.team.name, flag: e.team.flag },
-      played: 0, won: 0, draw: 0, lost: 0, gf: 0, ga: 0, pts: 0,
-    })),
-  }))
+// بناء الترتيب من نتائج المباريات
+function buildTable(fixtures) {
+  // خريطة teamId → groupLetter
+  const teamGroup = {}
+  for (const g of GROUPS)
+    for (const e of g.teams)
+      teamGroup[e.team.id] = g.id
+
+  // تهيئة الجدول بصفر
+  const table = {}
+  for (const g of GROUPS) {
+    table[g.id] = {
+      id: g.id, name: g.name,
+      teams: g.teams.map(e => ({
+        team: { id: e.team.id, name: e.team.name, flag: e.team.flag },
+        played: 0, won: 0, draw: 0, lost: 0, gf: 0, ga: 0, pts: 0,
+      })),
+    }
+  }
+
+  // حساب النقاط من المباريات المنتهية
+  for (const f of (fixtures || [])) {
+    if (f.status !== 'FINISHED' || f.homeScore === null) continue
+    const gId = teamGroup[f.homeTeam?.id]
+    if (!gId) continue
+    const home = table[gId].teams.find(t => t.team.id === f.homeTeam.id)
+    const away = table[gId].teams.find(t => t.team.id === f.awayTeam?.id)
+    if (!home || !away) continue
+    home.played++; home.gf += f.homeScore; home.ga += f.awayScore
+    away.played++; away.gf += f.awayScore; away.ga += f.homeScore
+    if (f.homeScore > f.awayScore)      { home.won++; home.pts += 3; away.lost++ }
+    else if (f.awayScore > f.homeScore) { away.won++; away.pts += 3; home.lost++ }
+    else                                { home.draw++; home.pts++; away.draw++; away.pts++ }
+  }
+  return Object.values(table)
 }
 
 export default function RankingsPage() {
-  const [standings,    setStandings]    = useState(groupsAsStandings)  // يظهر فوراً
-  const [groupFilter,  setGroupFilter]  = useState('all')
-  const [sortBy,       setSortBy]       = useState('pts')
+  const [standings,   setStandings]  = useState(() => buildTable([]))  // يظهر فوراً
+  const [groupFilter, setGroupFilter] = useState('all')
+  const [sortBy,      setSortBy]      = useState('pts')
 
   useEffect(() => {
-    fetchStandings()
-      .then(data => { if (data && data.length > 0) setStandings(data) })
+    fetchAllFixtures()
+      .then(fixtures => setStandings(buildTable(fixtures)))
       .catch(() => {})
   }, [])
 
