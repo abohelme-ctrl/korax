@@ -13,6 +13,9 @@ import { fetchTodayMatches, fetchAllFixtures, INTERVAL_LIVE, INTERVAL_IDLE } fro
 // كأس العالم 2026 يبدأ 11 يونيو 2026 الساعة 22:00 بتوقيت السعودية
 const WC_START = new Date('2026-06-11T19:00:00Z')
 
+// على مستوى الـ module — لا يتصفر عند unmount/remount
+let _didScrollToToday = false
+
 // أول 14 مباراة — الجولة الأولى من دور المجموعات
 const FIRST_MATCHES = [
   { id: 1489369, date: 'الخميس 11 يونيو',  time: '10:00 م', home: 'المكسيك',          homeFlag: '🇲🇽', away: 'جنوب أفريقيا',   awayFlag: '🇿🇦', city: 'مكسيكو سيتي' },
@@ -92,10 +95,18 @@ export default function HomePage() {
   const started    = countdown ? countdown.total <= 0 : false
 
   // دمج بيانات اليوم الحية مع جدول المباريات الكامل (مقارنة string لتجنب number/string mismatch)
-  const mergedFixtures = allFixtures.map(f => {
-    const live = matches.find(m => String(m.id) === String(f.id))
-    return live ? { ...f, ...live, date: f.date, time: f.time } : f
-  })
+  const mergedFixtures = allFixtures
+    .map(f => {
+      const live = matches.find(m => String(m.id) === String(f.id))
+      return live ? { ...f, ...live, date: f.date, time: f.time } : f
+    })
+    .sort((a, b) => {
+      // ترتيب زمني دائماً — لا تقفز المباريات المباشرة للأعلى
+      const at = a.startTime ? new Date(a.startTime).getTime() : 0
+      const bt = b.startTime ? new Date(b.startTime).getTime() : 0
+      if (!a.startTime && !b.startTime) return 0
+      return at - bt
+    })
 
   return (
     <div>
@@ -314,15 +325,14 @@ function TournamentStat({ value, label }) {
 
 function SchedulePreview({ matches }) {
   const [activeRound, setActiveRound] = useState(null)
-  const todayRef   = useRef(null)
-  const scrolled   = useRef(false)
-  const today      = new Date().toISOString().slice(0, 10)
+  const todayRef = useRef(null)
+  const today    = new Date().toISOString().slice(0, 10)
 
-  // اسكرول لمباريات اليوم مرة واحدة بعد تحميل البيانات
+  // اسكرول لمباريات اليوم مرة واحدة فقط — _didScrollToToday لا يتصفر عند remount
   useEffect(() => {
-    if (!scrolled.current && todayRef.current && matches.some(m => m.startTime)) {
+    if (!_didScrollToToday && todayRef.current && matches.some(m => m.startTime)) {
       todayRef.current.scrollIntoView({ behavior: 'instant', block: 'start' })
-      scrolled.current = true
+      _didScrollToToday = true
     }
   }, [matches])
 

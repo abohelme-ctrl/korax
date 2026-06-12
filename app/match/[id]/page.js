@@ -85,6 +85,10 @@ function MatchPageInner() {
   if (!match)  return <NotFound />
 
   const { status, minute, homeTeam, awayTeam, homeScore, awayScore, group, stadium, referee, startTime } = match
+
+  // حماية: إذا كانت بيانات الفريق غير مكتملة → لا نعرض الصفحة
+  if (!homeTeam || !awayTeam) return <NotFound />
+
   const time = formatMatchTime(startTime, getUserTimezone())
 
   return (
