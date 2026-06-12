@@ -6,16 +6,29 @@ import { useState, useEffect } from 'react'
 import Header from '@/components/layout/Header'
 import BottomNav from '@/components/layout/BottomNav'
 import { fetchStandings } from '@/lib/api-football'
+import { GROUPS } from '@/lib/mock-data'
+
+// تحويل GROUPS إلى الشكل المطلوب للصفحة
+function groupsAsStandings() {
+  return GROUPS.map(g => ({
+    id: g.id,
+    name: g.name,
+    teams: g.teams.map(e => ({
+      team:   { id: e.team.id, name: e.team.name, flag: e.team.flag },
+      played: 0, won: 0, draw: 0, lost: 0, gf: 0, ga: 0, pts: 0,
+    })),
+  }))
+}
 
 export default function RankingsPage() {
-  const [standings,    setStandings]    = useState(null)
+  const [standings,    setStandings]    = useState(groupsAsStandings)  // يظهر فوراً
   const [groupFilter,  setGroupFilter]  = useState('all')
   const [sortBy,       setSortBy]       = useState('pts')
 
   useEffect(() => {
     fetchStandings()
-      .then(data => setStandings(data || []))
-      .catch(() => setStandings([]))
+      .then(data => { if (data && data.length > 0) setStandings(data) })
+      .catch(() => {})
   }, [])
 
   // ── ترتيب المنتخبات داخل كل مجموعة ─────────────────────────────────────────
@@ -102,33 +115,13 @@ export default function RankingsPage() {
           ))}
         </div>
 
-        {/* ── قبل البطولة ── */}
-        {standings !== null && !started && (
-          <div className="mx-4 mb-3 card p-3 bg-primary/5 border-primary/20 text-center">
-            <p className="text-xs text-muted">🕐 البطولة لم تبدأ بعد — الترتيب سيُحدَّث تلقائياً بعد كل مباراة</p>
-          </div>
-        )}
-
-        {/* ── Loading ── */}
-        {standings === null && (
-          <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          </div>
-        )}
 
         {/* ── جداول المجموعات ── */}
-        {standings !== null && (
-          <div className="px-4 space-y-3 pb-2">
-
-            {visibleGroups.length === 0 && (
-              <div className="py-10 text-center text-muted text-sm">لا توجد بيانات</div>
-            )}
-
-            {visibleGroups.map(group => (
-              <GroupTable key={group.id} group={group} sortBy={sortBy} />
-            ))}
-          </div>
-        )}
+        <div className="px-4 space-y-3 pb-2">
+          {visibleGroups.map(group => (
+            <GroupTable key={group.id} group={group} sortBy={sortBy} />
+          ))}
+        </div>
 
         {/* ── Legend ── */}
         {standings !== null && (
