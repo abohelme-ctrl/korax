@@ -101,10 +101,10 @@ export default function HomePage() {
       return live ? { ...f, ...live, date: f.date, time: f.time } : f
     })
     .sort((a, b) => {
-      // ترتيب زمني دائماً — لا تقفز المباريات المباشرة للأعلى
-      const at = a.startTime ? new Date(a.startTime).getTime() : 0
-      const bt = b.startTime ? new Date(b.startTime).getTime() : 0
-      if (!a.startTime && !b.startTime) return 0
+      // ترتيب زمني — المباريات بدون startTime تبقى في نهاية القائمة
+      const at = a.startTime ? new Date(a.startTime).getTime() : Infinity
+      const bt = b.startTime ? new Date(b.startTime).getTime() : Infinity
+      if (at === Infinity && bt === Infinity) return 0
       return at - bt
     })
 
