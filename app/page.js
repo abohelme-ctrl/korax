@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Header from '@/components/layout/Header'
 import BottomNav from '@/components/layout/BottomNav'
@@ -314,6 +314,17 @@ function TournamentStat({ value, label }) {
 
 function SchedulePreview({ matches }) {
   const [activeRound, setActiveRound] = useState(null)
+  const todayRef   = useRef(null)
+  const scrolled   = useRef(false)
+  const today      = new Date().toISOString().slice(0, 10)
+
+  // اسكرول لمباريات اليوم مرة واحدة بعد تحميل البيانات
+  useEffect(() => {
+    if (!scrolled.current && todayRef.current && matches.some(m => m.startTime)) {
+      todayRef.current.scrollIntoView({ behavior: 'instant', block: 'start' })
+      scrolled.current = true
+    }
+  }, [matches])
 
   // استخراج الجولات المتاحة
   const rounds = [...new Set(matches.map(m => m.group || m.groupEn || 'الجولة الأولى'))].filter(Boolean)
@@ -356,8 +367,10 @@ function SchedulePreview({ matches }) {
       )}
 
       <div className="px-4 space-y-3">
-        {Object.entries(grouped).map(([date, dayMatches]) => (
-          <div key={date}>
+        {Object.entries(grouped).map(([date, dayMatches]) => {
+          const isToday = dayMatches.some(m => m.startTime?.slice(0, 10) === today)
+          return (
+          <div key={date} ref={isToday ? todayRef : null}>
             <div className="flex items-center gap-2 mb-2">
               <div className="h-px flex-1 bg-border" />
               <span className="text-[11px] font-bold text-primary px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
@@ -371,7 +384,8 @@ function SchedulePreview({ matches }) {
               ))}
             </div>
           </div>
-        ))}
+          )
+        })}
 
         {filtered.length === 0 && (
           <div className="text-center py-12 text-muted">
